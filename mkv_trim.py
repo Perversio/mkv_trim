@@ -109,16 +109,17 @@ def validate_args():
     if not args.command:
         sys.exit('Command required: scan | smart | trim\nSee -h for usage.')
 
-    # Radarr: Test event
-    if os.environ.get('radarr_eventtype') == 'Test':
-        print('mkv_trim: Radarr connection OK')
+    # Radarr/Sonarr: Test event
+    if os.environ.get('radarr_eventtype') == 'Test' or os.environ.get('sonarr_eventtype') == 'Test':
+        print('mkv_trim: connection OK')
         sys.exit(0)
 
-    # Radarr: use env var as input if -i / positional not provided
+    # Radarr/Sonarr: use env var as input if -i / positional not provided
     if not args.input and not args.path:
-        radarr_path = os.environ.get('radarr_moviefile_path', '')
-        if radarr_path:
-            args.input = radarr_path
+        arr_path = (os.environ.get('radarr_moviefile_path') or
+                    os.environ.get('sonarr_episodefile_path', ''))
+        if arr_path:
+            args.input = arr_path
 
     if args.path and not args.input:
         args.input = args.path

@@ -25,7 +25,8 @@ using `mkvmerge`. No transcoding — pure stream copy, fast.
   - [Examples](#examples)
 - [Track Scoring](#track-scoring-smart-command)
 - [Radarr / Sonarr / \*arr Integration](#radarr--sonarr--arr-integration)
-  - [Connect: Custom Script](#radarr-setup)
+  - [Radarr: Connect Custom Script](#radarr-setup-has-arguments-field)
+  - [Sonarr: Connect Custom Script](#sonarr-setup-no-arguments-field)
   - [Import Using Script](#radarr--sonarr-import-using-script-alternative)
 
 ## Features
@@ -201,7 +202,7 @@ Values are additive integers (positive = prefer, negative = penalize).
 The file path is read from the `radarr_moviefile_path` / `sonarr_episodefile_path`
 environment variable automatically — no special command needed.
 
-### Radarr setup
+### Radarr setup (has Arguments field)
 
 1. **Settings → Connect → Custom Script**
 2. Set fields:
@@ -211,13 +212,27 @@ environment variable automatically — no special command needed.
    | Name | `mkv_trim` |
    | Path | `/path/to/mkv_trim` |
    | Arguments | `smart -a eng,jpn -L` |
-   | Notification Triggers | ✅ On Import  ✅ On Upgrade |
+   | Notification Triggers | ✅ On File Import  ✅ On File Upgrade |
 
-3. Click **Test** — should return `mkv_trim: Radarr connection OK`.
+3. Click **Test** — should return `mkv_trim: connection OK`.
 
-### Sonarr setup
+### Sonarr setup (no Arguments field)
 
-Same as Radarr. Sonarr passes `sonarr_episodefile_path` — supported out of the box.
+Sonarr's Custom Script dialog has no Arguments field. Use the included `connect.sh` wrapper instead:
+
+1. **Settings → Connect → Custom Script**
+2. Set fields:
+
+   | Field | Value |
+   |-------|-------|
+   | Name | `mkv_trim` |
+   | Path | `/path/to/mkv_trim/connect.sh` |
+   | Notification Triggers | ✅ On File Import  ✅ On File Upgrade |
+
+3. Edit `-a` languages in `connect.sh` to match your preferences.
+4. Click **Test** — should return `mkv_trim: connection OK`.
+
+`connect.sh` can also be used with Radarr if you prefer not to set arguments in the UI.
 
 ### Arguments reference for \*arr
 

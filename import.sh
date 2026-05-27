@@ -21,7 +21,13 @@ if [ -z "$SOURCE" ] || [ -z "$DEST" ]; then
     exit 1
 fi
 
-exec "$MKV_TRIM" smart \
+"$MKV_TRIM" smart \
     -a ukr,eng,jpn,und \
     -o "$DEST" \
     "$SOURCE"
+
+# If mkv_trim skipped the file (unsupported format, etc.) and destination
+# was not written, fall back to plain copy so *arr import succeeds.
+if [ ! -f "$DEST" ]; then
+    cp "$SOURCE" "$DEST"
+fi

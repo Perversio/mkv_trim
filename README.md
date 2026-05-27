@@ -11,6 +11,23 @@
 Lazy MKV remuxer. Scans MKV files and strips unwanted audio/subtitle tracks
 using `mkvmerge`. No transcoding — pure stream copy, fast.
 
+## Contents
+
+- [Features](#features)
+- [Requirements](#requirements-build-machine-only)
+- [Installation](#installation)
+  - [macOS](#macos)
+  - [Linux](#linux)
+  - [Docker](#docker)
+- [Usage](#usage)
+  - [Commands](#commands)
+  - [Options](#options)
+  - [Examples](#examples)
+- [Track Scoring](#track-scoring-smart-command)
+- [Radarr / Sonarr / \*arr Integration](#radarr--sonarr--arr-integration)
+  - [Connect: Custom Script](#radarr-setup)
+  - [Import Using Script](#radarr-import-using-script-alternative)
+
 ## Features
 
 - **scan** — preview which tracks would be kept/removed, no files touched

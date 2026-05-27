@@ -11,10 +11,10 @@ Commands:
                preserved.
 
 Options:
-  -a / --audio       Audio languages to keep. Comma-separated: -a ukr,rus
-                     Choices: ukr eng jpn rus und
-  -s / --subtitle    Subtitle languages to keep. Comma-separated: -s ukr,rus
-                     Choices: ukr eng jpn rus und
+  -a / --audio       Audio languages to keep. Comma-separated: -a eng,jpn
+                     Accepts ISO 639-1 (en), ISO 639-2 (eng), or ISO 639-3 codes
+  -s / --subtitle    Subtitle languages to keep. Comma-separated: -s eng,jpn
+                     Omit to remove all subtitles.
   -o / --output      Output file path (overrides Trim/ folder default)
   -W / --weights     Path to custom JSON weights file
   -R / --recursive   Scan subdirectories
@@ -25,23 +25,23 @@ Options:
   -V / --version     Print version (no command required)
 
 Usage notes:
-  Input path can be passed as the last argument without -i: mkv_trim scan -Ra ukr /path
+  Input path can be passed as the last argument without -i: mkv_trim scan -Ra eng /path
   Boolean flags can be combined: -RS, -Rd, -RSd, -RId
-  Multiple -a/-s flags are merged and deduplicated: -a ukr -a rus  =>  [ukr, rus]
+  Multiple -a/-s flags are merged and deduplicated: -a eng -a jpn  =>  [eng, jpn]
 
 Examples:
-  mkv_trim scan -Ra ukr,rus /movies        Scan all files recursively, show track table
-  mkv_trim smart -Ra ukr,rus /movies       Smart-select best ukr+rus audio, recurse
-  mkv_trim smart -Ra ukr -s ukr,rus /f     Smart audio ukr, keep ukr+rus subtitles
-  mkv_trim trim -a ukr,rus -s ukr /f       Dumb trim: keep ukr+rus audio, ukr subs
-  mkv_trim smart -RLa ukr,rus /movies      Smart select, replace files in place
-  mkv_trim smart -RSda ukr,rus /movies     Dry run with stats, no files modified
+  mkv_trim scan -Ra eng,jpn /movies        Scan all files recursively, show track table
+  mkv_trim smart -Ra eng,jpn /movies       Smart-select best eng+jpn audio, recurse
+  mkv_trim smart -Ra eng -s eng,jpn /f     Smart audio eng, keep eng+jpn subtitles
+  mkv_trim trim -a eng,jpn -s eng /f       Dumb trim: keep eng+jpn audio, eng subs
+  mkv_trim smart -RLa eng,jpn /movies      Smart select, replace files in place
+  mkv_trim smart -RSda eng,jpn /movies     Dry run with stats, no files modified
 
 Radarr Integration:
   Configure as Custom Script in Radarr Settings > Connections.
   Path:      /usr/local/bin/mkv_trim
-  Arguments: smart -a ukr,rus -L          (in-place replace)
-         or: smart -a ukr,rus -o /output/path.mkv
+  Arguments: smart -a eng,jpn -L          (in-place replace)
+         or: smart -a eng,jpn -o /output/path.mkv
   Events:    On Import, On Upgrade
 
   Test connection event handled automatically (exits 0).

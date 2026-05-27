@@ -108,7 +108,7 @@ mkv_trim <command> [options] [path]
 
 | Flag | Long | Description |
 |------|------|-------------|
-| `-a` | `--audio` | Audio languages to keep. Comma-separated: `-a ukr,rus` |
+| `-a` | `--audio` | Audio languages to keep. Comma-separated: `-a eng,jpn` |
 | `-s` | `--subtitle` | Subtitle languages to keep. Omit to remove all subtitles. |
 | `-o` | `--output` | Output file path (overrides default `Trim/` folder) |
 | `-W` | `--weights` | Path to custom JSON weights file |
@@ -119,25 +119,25 @@ mkv_trim <command> [options] [path]
 | `-I` | `--interactive` | Ask confirmation before each file |
 | `-V` | `--version` | Print version and exit |
 
-Language choices: `ukr` `eng` `jpn` `rus` `und`
+Accepts ISO 639-1 (`en`), ISO 639-2 (`eng`), or ISO 639-3 codes. Full list in `data/languages.json`.
 
 ### Usage notes
 
-- Input path can be the last argument without `-i`: `mkv_trim scan -Ra ukr /path`
+- Input path can be the last argument without `-i`: `mkv_trim scan -Ra eng /path`
 - Boolean flags can be combined: `-RS`, `-Rd`, `-RSd`, `-RId`
-- Multiple `-a`/`-s` flags are merged: `-a ukr -a rus` → `[ukr, rus]`
+- Multiple `-a`/`-s` flags are merged: `-a eng -a jpn` → `[eng, jpn]`
 - At least one audio track is always preserved (even if language not in `-a` list)
 - Without `-s`, all subtitles are removed
 
 ### Examples
 
 ```bash
-mkv_trim scan -Ra ukr,rus /movies        # preview track table, recursive
-mkv_trim smart -Ra ukr,rus /movies       # smart-select best ukr+rus audio
-mkv_trim smart -Ra ukr -s ukr,rus /f     # smart audio ukr, keep ukr+rus subs
-mkv_trim trim -a ukr,rus -s ukr /f       # explicit trim: keep ukr+rus audio, ukr subs
-mkv_trim smart -RLa ukr,rus /movies      # smart select, replace files in place
-mkv_trim smart -RSda ukr,rus /movies     # dry run with space diff stats
+mkv_trim scan -Ra eng,jpn /movies        # preview track table, recursive
+mkv_trim smart -Ra eng,jpn /movies       # smart-select best eng+jpn audio
+mkv_trim smart -Ra eng -s eng,jpn /f     # smart audio eng, keep eng+jpn subs
+mkv_trim trim -a eng,jpn -s eng /f       # explicit trim: keep eng+jpn audio, eng subs
+mkv_trim smart -RLa eng,jpn /movies      # smart select, replace files in place
+mkv_trim smart -RSda eng,jpn /movies     # dry run with space diff stats
 ```
 
 ---
@@ -154,11 +154,9 @@ Negative scores (e.g. commentary tracks) are disabled.
 ```json
 {
   "track_name": {
-    "dub":   100,  "orig":    100,
-    "mvo":    50,  "много":    50,
-    "dvo":    40,  "двух":     40,
-    "vo":    -40,  "одно":    -50,
-    "comment": -1000, "Авторский": -1000
+    "dub":     100,
+    "orig":    100,
+    "comment": -1000
   },
   "audio_codec": {
     "TrueHD": 7, "Atmos": 6, "DTS": 5, "AC3": 4, "AC-3": 3
@@ -172,7 +170,7 @@ Negative scores (e.g. commentary tracks) are disabled.
 ### Custom weights
 
 ```bash
-mkv_trim smart -a ukr,rus -W /path/to/weights.json /movies
+mkv_trim smart -a eng,jpn -W /path/to/weights.json /movies
 ```
 
 Supported top-level keys: `track_name`, `audio_codec`, `subtitle_codec`.
@@ -195,7 +193,7 @@ environment variable automatically — no special command needed.
    |-------|-------|
    | Name | `mkv_trim` |
    | Path | `/usr/local/bin/mkv_trim` |
-   | Arguments | `smart -a ukr,rus -L` |
+   | Arguments | `smart -a eng,jpn -L` |
    | Notification Triggers | ✅ On Import  ✅ On Upgrade |
 
 3. Click **Test** — should return `mkv_trim: Radarr connection OK`.
@@ -208,9 +206,9 @@ Same as Radarr. Sonarr passes `sonarr_episodefile_path` — supported out of the
 
 | Scenario | Arguments |
 |----------|-----------|
-| In-place, smart select | `smart -a ukr,rus -L` |
-| In-place, keep subs | `smart -a ukr,rus -s ukr,rus -L` |
-| Output to specific path | `smart -a ukr,rus -o /output/file.mkv` |
+| In-place, smart select | `smart -a eng,jpn -L` |
+| In-place, keep subs | `smart -a eng,jpn -s eng,jpn -L` |
+| Output to specific path | `smart -a eng,jpn -o /output/file.mkv` |
 
 > **`-L` is required for \*arr integrations.**
 >

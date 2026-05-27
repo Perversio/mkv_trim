@@ -11,7 +11,7 @@ import time
 import sys
 import os
 
-version = '1.0.9'
+version = '1.1.0'
 args: argparse.Namespace
 input_path: Path = Path.cwd()
 scan_size: int = 0
@@ -24,7 +24,23 @@ def signal_handler(sig, frame):
 
 
 BOOL_FLAGS = {'-R', '-S', '-d', '-L', '-h', '-V', '-I'}
-LANG_OPTIONS = ['ukr', 'eng', 'jpn', 'rus', 'und']
+LANG_OPTIONS: set = set()
+
+
+def load_lang_options() -> set:
+    lang_file = Util.resource_path('data/languages.json')
+    try:
+        with open(lang_file, 'r', encoding='utf-8') as f:
+            data = json.load(f)
+        codes = set()
+        for entry in data:
+            for key in ('iso1', 'iso2', 'iso3'):
+                code = entry.get(key, '').strip()
+                if code:
+                    codes.add(code)
+        return codes
+    except (FileNotFoundError, json.JSONDecodeError):
+        return {'eng', 'jpn', 'und'}
 
 
 def expand_argv(argv):
@@ -48,7 +64,7 @@ def lang_type(value):
     langs = [v.strip() for v in value.split(',')]
     for lang in langs:
         if lang not in LANG_OPTIONS:
-            raise argparse.ArgumentTypeError(f"invalid choice: '{lang}' (choose from {', '.join(LANG_OPTIONS)})")
+            raise argparse.ArgumentTypeError(f"invalid language code: '{lang}'")
     return langs
 
 
@@ -408,12 +424,13 @@ def load_weights() -> dict:
 
 
 def main():
-    global default_weights
+    global default_weights, LANG_OPTIONS
     # When running as a frozen bundle, prefer the bundled mkvmerge
     if getattr(sys, 'frozen', False):
         bundle_dir = getattr(sys, '_MEIPASS', str(Path(sys.executable).parent))
         os.environ['PATH'] = bundle_dir + os.pathsep + os.environ.get('PATH', '')
     Util.check_dependency(['mkvmerge'])
+    LANG_OPTIONS = load_lang_options()
     help_path = Util.resource_path('data/help.txt')
     with open(help_path, 'r', encoding='utf-8') as file:
         get_arguments(file.read())

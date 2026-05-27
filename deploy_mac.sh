@@ -51,6 +51,7 @@ echo "pyinstaller: $bin"
 "$bin" --onedir --strip --noconfirm \
     --add-data "$SCRIPT_DIR/data/help.txt:data" \
     --add-data "$SCRIPT_DIR/data/default_weights.json:data" \
+    --add-data "$SCRIPT_DIR/data/languages.json:data" \
     --add-binary "$(which mkvmerge):." \
     "$SCRIPT_DIR"/mkv_trim.py
 

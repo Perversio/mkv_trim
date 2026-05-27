@@ -2,6 +2,7 @@
 set -e
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
+# --- check mkvmerge ---
 if ! command -v mkvmerge &>/dev/null; then
     echo "ERROR: mkvmerge not found."
     echo "Install via package manager:"
@@ -12,13 +13,35 @@ if ! command -v mkvmerge &>/dev/null; then
 fi
 echo "mkvmerge: $(which mkvmerge) ($(mkvmerge --version | head -1))"
 
-source "$SCRIPT_DIR"/.venv/bin/activate
+# --- check python3 ---
+if ! command -v python3 &>/dev/null; then
+    echo "ERROR: python3 not found."
+    echo "Install via package manager:"
+    echo "  Ubuntu/Debian: sudo apt install python3 python3-venv"
+    echo "  Fedora/RHEL:   sudo dnf install python3"
+    echo "  Arch:          sudo pacman -S python"
+    exit 1
+fi
+
+# --- create venv if missing ---
+if [ ! -f "$SCRIPT_DIR/.venv/bin/activate" ]; then
+    echo "Creating virtual environment..."
+    python3 -m venv "$SCRIPT_DIR/.venv"
+fi
+
+source "$SCRIPT_DIR/.venv/bin/activate"
+
+# --- install / upgrade dependencies ---
+echo "Installing dependencies..."
+pip install --quiet --upgrade pip
+pip install --quiet pyinstaller tqdm humanize
+
 rm -rf "$SCRIPT_DIR"/build/
 rm -rf "$SCRIPT_DIR"/dist/
 rm -rf "$SCRIPT_DIR"/mkv_trim.spec
 
 bin=$(which pyinstaller)
-echo "$bin"
+echo "pyinstaller: $bin"
 
 "$bin" --onedir --strip --noconfirm \
     --add-data "$SCRIPT_DIR/data/help.txt:data" \
@@ -37,3 +60,5 @@ chmod +x "$INSTALL_DIR/mkv_trim"
 
 rm -f /usr/local/bin/mkv_trim
 ln -s "$INSTALL_DIR/mkv_trim" /usr/local/bin/mkv_trim
+
+echo "Done. mkv_trim installed at /usr/local/bin/mkv_trim"

@@ -27,7 +27,7 @@ using `mkvmerge`. No transcoding — pure stream copy, fast.
 
 - Python 3.10+
 - `mkvmerge` (MKVToolNix) — bundled into the binary at build time
-- `pyinstaller`, `tqdm`, `humanize` Python packages
+- Python packages (`pyinstaller`, `tqdm`, `humanize`) — installed automatically by deploy script
 
 ---
 
@@ -36,42 +36,41 @@ using `mkvmerge`. No transcoding — pure stream copy, fast.
 ### macOS
 
 ```bash
-# Install mkvmerge (required at build time)
-brew install mkvtoolnix
+# Install dependencies
+brew install python mkvtoolnix
 
-# Clone and set up venv
-git clone <repo>
+# Clone and deploy
+git clone https://github.com/Perversio/mkv_trim.git
 cd mkv_trim
-python3 -m venv .venv
-.venv/bin/pip install pyinstaller tqdm humanize
-
-# Build and install to /usr/local/bin/mkv_trim
 bash deploy_mac.sh
 ```
 
 The script will:
-1. Check `mkvmerge` is present and print its version
-2. Bundle the binary + `mkvmerge` + data files via PyInstaller (`--onedir`)
-3. Ad-hoc codesign the bundle (satisfies macOS Gatekeeper without a paid Developer ID)
-4. Install to `/usr/local/lib/mkv_trim/` and symlink to `/usr/local/bin/mkv_trim`
+1. Check `mkvmerge` and `python3` are present
+2. Create `.venv` and install Python packages automatically
+3. Bundle the binary + `mkvmerge` + data files via PyInstaller (`--onedir`)
+4. Ad-hoc codesign the bundle (satisfies macOS Gatekeeper without a paid Developer ID)
+5. Install to `/usr/local/lib/mkv_trim/` and symlink to `/usr/local/bin/mkv_trim`
 
 ### Linux
 
 ```bash
-# Install mkvmerge (required at build time)
-sudo apt install mkvtoolnix          # Ubuntu/Debian
-# sudo dnf install mkvtoolnix        # Fedora/RHEL
-# sudo pacman -S mkvtoolnix-cli      # Arch
+# Install dependencies
+sudo apt install python3 python3-venv mkvtoolnix   # Ubuntu/Debian
+# sudo dnf install python3 mkvtoolnix              # Fedora/RHEL
+# sudo pacman -S python mkvtoolnix-cli             # Arch
 
-# Clone and set up venv
-git clone <repo>
+# Clone and deploy
+git clone https://github.com/Perversio/mkv_trim.git
 cd mkv_trim
-python3 -m venv .venv
-.venv/bin/pip install pyinstaller tqdm humanize
-
-# Build and install to /usr/local/bin/mkv_trim
 sudo bash deploy.sh
 ```
+
+The script will:
+1. Check `mkvmerge` and `python3` are present
+2. Create `.venv` and install Python packages automatically
+3. Bundle the binary + `mkvmerge` + data files via PyInstaller (`--onedir`)
+4. Install to `/usr/local/lib/mkv_trim/` and symlink to `/usr/local/bin/mkv_trim`
 
 ### Docker
 

@@ -192,7 +192,7 @@ environment variable automatically — no special command needed.
    | Field | Value |
    |-------|-------|
    | Name | `mkv_trim` |
-   | Path | `/usr/local/bin/mkv_trim` |
+   | Path | `/path/to/mkv_trim` |
    | Arguments | `smart -a eng,jpn -L` |
    | Notification Triggers | ✅ On Import  ✅ On Upgrade |
 
@@ -236,7 +236,7 @@ and is responsible for writing the output file itself.
 Use the included `radarr_import.sh` wrapper:
 
 ```
-Import Script Path: /config/scripts/mkv_trim/radarr_import.sh
+Import Script Path: /path/to/mkv_trim/radarr_import.sh
 ```
 
 ```bash
@@ -255,7 +255,7 @@ exec "$SCRIPT_DIR/mkv_trim" smart \
 The wrapper is in the repo root — copy it alongside the `mkv_trim` binary and make it executable:
 
 ```bash
-chmod +x /config/scripts/mkv_trim/radarr_import.sh
+chmod +x /path/to/mkv_trim/radarr_import.sh
 ```
 
 > Do **not** use `-L` here — Radarr provides the destination path explicitly via `radarr_destinationpath`.

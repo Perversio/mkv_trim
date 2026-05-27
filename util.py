@@ -123,7 +123,7 @@ class Util:
         result = None
         process = subprocess.Popen(command, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
 
-        pbar = tqdm(total=100, unit="%", bar_format="{l_bar}{bar} | {postfix}", position=0, leave=True)
+        pbar = tqdm(total=100, unit="%", bar_format="{l_bar}{bar} | {postfix}", position=0, leave=False)
 
         try:
             while True:

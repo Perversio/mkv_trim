@@ -206,7 +206,7 @@ def process_dir(folder: Path, dest: Path) -> int:
         print(f'Found {len(objects)} eligible files of {len(files)}')
 
     if args.command != 'scan':
-        pbar2 = tqdm(total=len(objects), unit='file', position=0, leave=True)
+        pbar2 = tqdm(total=len(objects), unit='file', position=1, leave=True, desc='Total')
         for mkv in objects:
             count += 1
             rout_object(mkv, dest)

@@ -174,14 +174,14 @@ class MKV:
 
     def len_tracks(self, types: list[str] = None, langs: list[str] = None, enabled: bool = False) -> int:
         result: list = []
-        if types is list:
+        if isinstance(types, list):
             for t_type in types:
-                if langs is list:
+                if isinstance(langs, list):
                     for lang in langs:
                         result.extend(self.tracks_by_type_lang.get(t_type, {}).get(lang, []))
                 else:
                     result.extend(self.tracks_by_type.get(t_type, []))
-        elif langs is list:
+        elif isinstance(langs, list):
             for lang in langs:
                 result.extend(self.tracks_by_lang.get(lang, []))
         else:

@@ -10,7 +10,7 @@ import json
 import sys
 import os
 
-version = '1.1.1'
+version = '1.1.2'
 args: argparse.Namespace
 input_path: Path = Path.cwd()
 scan_size: int = 0
@@ -178,19 +178,16 @@ def process_dir(folder: Path, dest: Path) -> int:
                 pbar.update()
                 continue
 
-        needs_change: bool = False
-        if args.audio:
-            if smart:
-                needs_change |= mkv.len_tracks(types=['audio'], langs=args.audio, enabled=smart) < mkv.len_tracks(types=['audio'])
-            else:
-                needs_change |= any(t.language not in args.audio for t in mkv.tracks_by_type.get('audio', []))
-        if args.subtitle:
-            if smart:
-                needs_change |= mkv.len_tracks(types=['subtitles'], langs=args.subtitle, enabled=smart) < mkv.len_tracks(types=['subtitles'])
-            else:
-                needs_change |= any(t.language not in args.subtitle for t in mkv.tracks_by_type.get('subtitles', []))
-        elif not smart:
-            needs_change |= len(mkv.tracks_by_type.get('subtitles', [])) > 0
+        # Scan shows any file with any delta; smart/trim only process audio deltas.
+        audio_tracks = mkv.tracks_by_type.get('audio', [])
+        if args.command == 'scan':
+            needs_change = any(not t.enabled for t in mkv.tracks_non_video)
+        elif smart:
+            needs_change = not all(t.enabled for t in audio_tracks)
+        elif args.audio:
+            needs_change = any(t.language not in args.audio for t in audio_tracks)
+        else:
+            needs_change = False
         valid &= needs_change
 
         if valid:
@@ -288,16 +285,9 @@ def scan_object(mkv: MKV) -> bool:
 
 
 def smart_object(mkv: MKV, dest: Path) -> int:
-    change: bool = False
-    if args.audio:
-        change |= mkv.len_tracks(types=['audio'], langs=args.audio, enabled=True) != mkv.len_tracks(types=['audio'])
-    if args.subtitle:
-        change |= mkv.len_tracks(types=['subtitles'], langs=args.subtitle, enabled=True) != mkv.len_tracks(
-            types=['subtitles'])
-    else:
-        change |= mkv.len_tracks(types=['subtitles']) > 0
-
-    if not change:
+    # Only audio changes trigger reprocessing; subtitle-only deltas skipped.
+    audio_tracks = mkv.tracks_by_type.get('audio', [])
+    if all(t.enabled for t in audio_tracks):
         return 0
 
     return finish_object(mkv, dest)
@@ -311,8 +301,10 @@ def process_object(mkv: MKV, dest: Path) -> int:
         enabled.extend([t for t in mkv.tracks_by_type.get('subtitles', []) if t.language in args.subtitle])
     # no -s → all subtitles removed (same behaviour as smart)
 
-    current_enabled = [t for t in mkv.tracks_non_video if t.enabled]
-    if set(enabled) == set(current_enabled):
+    # Skip if audio set unchanged (subtitle-only diffs do not qualify).
+    current_audio = {t for t in mkv.tracks_non_video if t.enabled and t.type == 'audio'}
+    target_audio = {t for t in enabled if t.type == 'audio'}
+    if current_audio == target_audio:
         return 0
 
     for track in mkv.tracks_non_video:
@@ -433,6 +425,13 @@ def load_weights() -> dict:
 
 def main():
     global default_weights, LANG_OPTIONS
+    # Force line-buffered stdout/stderr so tqdm.write output flushes
+    # immediately in PyInstaller frozen bundles (where default may be block-buffered).
+    try:
+        sys.stdout.reconfigure(line_buffering=True)
+        sys.stderr.reconfigure(line_buffering=True)
+    except AttributeError:
+        pass
     # When running as a frozen bundle, prefer the bundled mkvmerge
     if getattr(sys, 'frozen', False):
         bundle_dir = getattr(sys, '_MEIPASS', str(Path(sys.executable).parent))

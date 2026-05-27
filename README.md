@@ -267,10 +267,16 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 SOURCE="${radarr_sourcepath:-$sonarr_sourcepath}"
 DEST="${radarr_destinationpath:-$sonarr_destinationpath}"
 
-exec "$SCRIPT_DIR/mkv_trim" smart \
+"$SCRIPT_DIR/mkv_trim" smart \
     -a ukr,eng,jpn,und \
     -o "$DEST" \
     "$SOURCE"
+
+# If mkv_trim skipped the file (unsupported format, incompatible container, etc.)
+# and destination was not written, fall back to plain copy so *arr import succeeds.
+if [ ! -f "$DEST" ]; then
+    cp "$SOURCE" "$DEST"
+fi
 ```
 
 Copy `import.sh` alongside the `mkv_trim` binary and make it executable:
@@ -280,3 +286,6 @@ chmod +x /path/to/mkv_trim/import.sh
 ```
 
 > Do **not** use `-L` here — destination path is provided explicitly by \*arr.
+>
+> If mkv_trim skips a file (unsupported format, incompatible container), the script falls
+> back to a plain copy so \*arr import always succeeds.

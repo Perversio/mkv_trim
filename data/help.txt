@@ -1,0 +1,69 @@
+MKV trim for all your lazy remuxing needs!
+Traverses input file/directory (current directory if none specified) and executes one of the supported commands.
+At least -a or -s argument is required.
+
+Commands:
+ [scan]    =>  Prints a track table showing which tracks would be enabled [+] or disabled [ ] by the
+               'smart' command. No files are modified.
+ [smart]   =>  Enables the highest-weight track per language. Tracks are scored by name keywords, codec,
+               and channel count. At least one audio track is always preserved.
+ [trim]    =>  Enables only tracks matching the specified languages. At least one audio track is always
+               preserved.
+
+Options:
+  -a / --audio       Audio languages to keep. Comma-separated: -a ukr,rus
+                     Choices: ukr eng jpn rus und
+  -s / --subtitle    Subtitle languages to keep. Comma-separated: -s ukr,rus
+                     Choices: ukr eng jpn rus und
+  -o / --output      Output file path (overrides Trim/ folder default)
+  -W / --weights     Path to custom JSON weights file
+  -R / --recursive   Scan subdirectories
+  -L / --inplace     Replace files in place (no Trim folder created)
+  -S / --stats       Print approximate disk space saved
+  -d / --dry         Print mkvmerge commands without executing
+  -I / --interactive Ask confirmation before processing each file (smart/trim, no-op with -d)
+  -V / --version     Print version (no command required)
+
+Usage notes:
+  Input path can be passed as the last argument without -i: mkv_trim scan -Ra ukr /path
+  Boolean flags can be combined: -RS, -Rd, -RSd, -RId
+  Multiple -a/-s flags are merged and deduplicated: -a ukr -a rus  =>  [ukr, rus]
+
+Examples:
+  mkv_trim scan -Ra ukr,rus /movies        Scan all files recursively, show track table
+  mkv_trim smart -Ra ukr,rus /movies       Smart-select best ukr+rus audio, recurse
+  mkv_trim smart -Ra ukr -s ukr,rus /f     Smart audio ukr, keep ukr+rus subtitles
+  mkv_trim trim -a ukr,rus -s ukr /f       Dumb trim: keep ukr+rus audio, ukr subs
+  mkv_trim smart -RLa ukr,rus /movies      Smart select, replace files in place
+  mkv_trim smart -RSda ukr,rus /movies     Dry run with stats, no files modified
+
+Radarr Integration:
+  Configure as Custom Script in Radarr Settings > Connections.
+  Path:      /usr/local/bin/mkv_trim
+  Arguments: smart -a ukr,rus -L          (in-place replace)
+         or: smart -a ukr,rus -o /output/path.mkv
+  Events:    On Import, On Upgrade
+
+  Test connection event handled automatically (exits 0).
+  File path read from radarr_moviefile_path env var when -i not given.
+
+Weighting (smart command):
+  Track score = channel count + forced/default flags + name keyword match + codec match.
+  Override weights by passing a JSON file via -W. Supported keys:
+
+  {
+    "track_name": {
+      "dub": 100,
+      "orig": 100,
+      "comment": -1000
+    },
+    "audio_codec": {
+      "TrueHD": 70,
+      "DTS": 50,
+      "AC3": 40
+    },
+    "subtitle_codec": {
+      "ass": 20,
+      "srt": 10
+    }
+  }

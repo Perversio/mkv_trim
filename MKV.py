@@ -33,6 +33,7 @@ class Track:
 
         self.size = int(props.get('tag_number_of_bytes', 0))
         self.bitrate = int(props.get('tag_bits_per_second', 0))
+        self.new_name: str = None  # Override track name in output (mkvmerge --track-name)
 
     def __repr__(self):
         return repr(self.__dict__)
@@ -145,6 +146,11 @@ class MKV:
     def command(self, dest: Path, use_langs: bool = False) -> list[str]:
         dest_l = dest.with_suffix('.mkv')
         result = ['mkvmerge', '-o', str(dest_l)]
+
+        # Per-track name overrides (applied before input file argument).
+        for t in self.tracks:
+            if t.new_name:
+                result.extend(['--track-name', f'{t.id}:{t.new_name}'])
 
         if use_langs:
             audio_langs = list(dict.fromkeys(

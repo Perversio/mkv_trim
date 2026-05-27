@@ -5,13 +5,12 @@ from tqdm import tqdm
 import multiprocessing
 import humanize
 import argparse
-import signal
 import json
 import sys
 import os
 import re
 
-version = '1.2.5'
+version = '1.3.0'
 args: argparse.Namespace
 input_path: Path = Path.cwd()
 scan_size: int = 0
@@ -19,8 +18,8 @@ result_commands: list[str] = list()
 default_weights: dict = {}
 
 
-def signal_handler(sig, frame):
-    sys.exit('Interrupted by user')
+# SIGINT left at Python default → raises KeyboardInterrupt, caught at main().
+processed_count: int = 0
 
 
 BOOL_FLAGS = {'-R', '-S', '-P', '-d', '-L', '-h', '-V', '-I'}
@@ -175,46 +174,55 @@ def process_dir(folder: Path, dest: Path) -> int:
     smart: bool = args.command == 'scan' or args.command == 'smart'
     expand: bool = bool(args.stats or args.perfile or args.min_diff)
 
-    for file in files:
-        try:
-            mkv: MKV = MKV(file, expanded=expand)
-        except ValueError as e:
-            tqdm.write(f'  skipping: {e}')
-            pbar.update()
-            continue
-        mkv.weights = default_weights
-
-        if smart:
-            smart_tracks_disable_all(mkv)
-            if not mkv.valid:
+    interrupted = False
+    try:
+        for file in files:
+            try:
+                mkv: MKV = MKV(file, expanded=expand)
+            except ValueError as e:
+                tqdm.write(f'  skipping: {e}')
                 pbar.update()
                 continue
-        else:
-            apply_trim(mkv)
+            mkv.weights = default_weights
 
-        # Estimated diff = total bytes of tracks now flagged disabled
-        diff = sum(t.size for t in mkv.tracks_non_video if not t.enabled)
+            if smart:
+                smart_tracks_disable_all(mkv)
+                if not mkv.valid:
+                    pbar.update()
+                    continue
+            else:
+                apply_trim(mkv)
 
-        # Min-diff cutoff: skip files whose estimated trim is below threshold
-        if args.min_diff and diff < args.min_diff:
+            # Estimated diff = total bytes of tracks now flagged disabled
+            diff = sum(t.size for t in mkv.tracks_non_video if not t.enabled)
+
+            # Min-diff cutoff: skip files whose estimated trim is below threshold
+            if args.min_diff and diff < args.min_diff:
+                pbar.update()
+                continue
+
+            # Only audio deltas qualify (subtitle-only changes skipped, even in scan).
+            audio_tracks = mkv.tracks_by_type.get('audio', [])
+            if smart:
+                needs_change = not all(t.enabled for t in audio_tracks)
+            elif args.audio:
+                needs_change = any(t.language not in args.audio for t in audio_tracks)
+            else:
+                needs_change = False
+
+            if needs_change:
+                tag_unnamed_eng(mkv)
+                count += 1
+                rout_object(mkv, dest, diff)
             pbar.update()
-            continue
+    except KeyboardInterrupt:
+        interrupted = True
+    finally:
+        pbar.close()
 
-        # Only audio deltas qualify (subtitle-only changes skipped, even in scan).
-        audio_tracks = mkv.tracks_by_type.get('audio', [])
-        if smart:
-            needs_change = not all(t.enabled for t in audio_tracks)
-        elif args.audio:
-            needs_change = any(t.language not in args.audio for t in audio_tracks)
-        else:
-            needs_change = False
-
-        if needs_change:
-            count += 1
-            rout_object(mkv, dest, diff)
-        pbar.update()
-
-    pbar.close()
+    if interrupted:
+        print(f'\nInterrupted by user. Processed {processed_count}/{count} eligible files before stop.')
+        sys.exit(130)
 
     if count == 0:
         print('No eligible files found.')
@@ -222,6 +230,13 @@ def process_dir(folder: Path, dest: Path) -> int:
         print(f'\nProcessed {count} eligible files of {len(files)}')
 
     return result
+
+
+def tag_unnamed_eng(mkv: MKV):
+    """Rename enabled English audio tracks with no name to 'Original'."""
+    for t in mkv.tracks_by_type.get('audio', []):
+        if t.enabled and t.language == 'eng' and not t.track_name:
+            t.new_name = 'Original'
 
 
 def apply_trim(mkv: MKV):
@@ -333,12 +348,26 @@ def finish_object(mkv: MKV, dest: Path, diff: int = 0) -> int:
         if args.interactive and not Util.ask_yes_no('Process?'):
             tqdm.write('  Skipped.')
             return 0
-        error = Util.run_command_live(command)
+        global processed_count
+        try:
+            error = Util.run_command_live(command)
+        except KeyboardInterrupt:
+            # mkvmerge child also got SIGINT; remove partial output.
+            try:
+                if dest_l.exists():
+                    os.remove(dest_l)
+                    tqdm.write(f'  Removed partial: {dest_l.name}')
+            except OSError:
+                pass
+            raise
         if args.inplace and not error:
             Util.replace_file(dest_l, mkv.file_path)
+            processed_count += 1
         elif error:
             tqdm.write(f'\033[91m  Error: {error}\033[0m')
             return 0
+        else:
+            processed_count += 1
 
     return 0
 
@@ -447,8 +476,6 @@ def main():
 
     print('\nStart mkv_trim' + ' Dry Run' if args.dry else '')
 
-    signal.signal(signal.SIGINT, signal_handler)
-
     if args.dry or args.command == 'scan':
         dest = input_path if input_path.is_dir() else input_path.parent
         dest = dest.joinpath('Trim')
@@ -461,25 +488,30 @@ def main():
     if args.stats and not args.dry:
         input_size = Util.get_size(input_path)
 
-    if input_path.is_file():
-        if input_path.suffix.lower().lstrip('.') not in ('mkv', 'm4v', 'mp4'):
-            sys.exit(0)
-        print(f"Scanning {input_path}\n")
-        try:
-            mkv = MKV(input_path, expanded=bool(args.stats or args.perfile or args.min_diff))
-        except ValueError as e:
-            sys.exit(f'Error: {e}')
-        if args.command != 'trim':
-            smart_tracks_disable_all(mkv)
+    try:
+        if input_path.is_file():
+            if input_path.suffix.lower().lstrip('.') not in ('mkv', 'm4v', 'mp4'):
+                sys.exit(0)
+            print(f"Scanning {input_path}\n")
+            try:
+                mkv = MKV(input_path, expanded=bool(args.stats or args.perfile or args.min_diff))
+            except ValueError as e:
+                sys.exit(f'Error: {e}')
+            if args.command != 'trim':
+                smart_tracks_disable_all(mkv)
+            else:
+                apply_trim(mkv)
+            diff = sum(t.size for t in mkv.tracks_non_video if not t.enabled)
+            if args.min_diff and diff < args.min_diff:
+                print('Below --min cutoff. Skipping.')
+            else:
+                tag_unnamed_eng(mkv)
+                rout_object(mkv, dest, diff)
         else:
-            apply_trim(mkv)
-        diff = sum(t.size for t in mkv.tracks_non_video if not t.enabled)
-        if args.min_diff and diff < args.min_diff:
-            print('Below --min cutoff. Skipping.')
-        else:
-            rout_object(mkv, dest, diff)
-    else:
-        process_dir(input_path, dest)
+            process_dir(input_path, dest)
+    except KeyboardInterrupt:
+        print('\nInterrupted by user.')
+        sys.exit(130)
 
     if args.dry:
         print('\n'.join(result_commands))

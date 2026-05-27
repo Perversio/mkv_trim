@@ -9,8 +9,9 @@ import signal
 import json
 import sys
 import os
+import re
 
-version = '1.1.4'
+version = '1.2.0'
 args: argparse.Namespace
 input_path: Path = Path.cwd()
 scan_size: int = 0
@@ -59,6 +60,17 @@ def expand_argv(argv):
     return result
 
 
+def size_type(value: str) -> int:
+    """Parse human-readable size to bytes. Accepts: 500M, 1G, 1.5GiB, 2GB, 1024."""
+    s = value.strip().upper().replace(' ', '')
+    units = {'': 1, 'B': 1, 'K': 1024, 'M': 1024**2, 'G': 1024**3, 'T': 1024**4}
+    m = re.match(r'^(\d+\.?\d*)\s*([KMGT]?)I?B?$', s)
+    if not m:
+        raise argparse.ArgumentTypeError(f"invalid size: '{value}' (use e.g. 500M, 1G, 1.5GiB)")
+    num, unit = m.groups()
+    return int(float(num) * units[unit])
+
+
 def lang_type(value):
     result = []
     for lang in (v.strip() for v in value.split(',')):
@@ -90,6 +102,7 @@ def get_arguments(description):
     parser.add_argument('--inplace', '-L', action='store_true', help=argparse.SUPPRESS)
     parser.add_argument('--stats', '-S', action='store_true', help=argparse.SUPPRESS)
     parser.add_argument('--perfile', '-P', action='store_true', help=argparse.SUPPRESS)
+    parser.add_argument('--min', '-M', dest='min_diff', type=size_type, default=0, help=argparse.SUPPRESS)
     parser.add_argument('--weights', '-W', type=str, help=argparse.SUPPRESS)
     parser.add_argument('--interactive', '-I', action='store_true', help=argparse.SUPPRESS)
 
@@ -159,10 +172,11 @@ def process_dir(folder: Path, dest: Path) -> int:
     pbar = tqdm(total=len(files), unit='file', position=0, leave=True, desc='Total')
 
     smart: bool = args.command == 'scan' or args.command == 'smart'
+    expand: bool = bool(args.stats or args.perfile or args.min_diff)
 
     for file in files:
         try:
-            mkv: MKV = MKV(file, expanded=args.stats or args.perfile)
+            mkv: MKV = MKV(file, expanded=expand)
         except ValueError as e:
             tqdm.write(f'  skipping: {e}')
             pbar.update()
@@ -174,6 +188,16 @@ def process_dir(folder: Path, dest: Path) -> int:
             if not mkv.valid:
                 pbar.update()
                 continue
+        else:
+            apply_trim(mkv)
+
+        # Estimated diff = total bytes of tracks now flagged disabled
+        diff = sum(t.size for t in mkv.tracks_non_video if not t.enabled)
+
+        # Min-diff cutoff: skip files whose estimated trim is below threshold
+        if args.min_diff and diff < args.min_diff:
+            pbar.update()
+            continue
 
         # Only audio deltas qualify (subtitle-only changes skipped, even in scan).
         audio_tracks = mkv.tracks_by_type.get('audio', [])
@@ -186,7 +210,7 @@ def process_dir(folder: Path, dest: Path) -> int:
 
         if needs_change:
             count += 1
-            rout_object(mkv, dest)
+            rout_object(mkv, dest, diff)
         pbar.update()
 
     pbar.close()
@@ -199,15 +223,30 @@ def process_dir(folder: Path, dest: Path) -> int:
     return result
 
 
-def rout_object(mkv: MKV, dest: Path) -> int:
-    result: int = 0
+def apply_trim(mkv: MKV):
+    """Apply trim track selection (audio/subs matching -a/-s) directly to mkv."""
+    enabled: set = set()
+    if args.audio:
+        enabled.update(t for t in mkv.tracks_by_type.get('audio', []) if t.language in args.audio)
+    if args.subtitle:
+        enabled.update(t for t in mkv.tracks_by_type.get('subtitles', []) if t.language in args.subtitle)
+    for track in mkv.tracks_non_video:
+        track.enabled = track in enabled
+    ensure_min_enabled(mkv, 'audio', args.audio)
+    ensure_min_enabled(mkv, 'subtitles', args.subtitle)
+
+
+def diff_prefix(diff: int) -> str:
+    """Return '[-1.2 GiB] ' style prefix when diff data available; else ''."""
+    if diff > 0 and (args.perfile or args.min_diff):
+        return f'[-{humanize.naturalsize(diff, binary=True)}] '
+    return ''
+
+
+def rout_object(mkv: MKV, dest: Path, diff: int = 0) -> int:
     if args.command == 'scan':
-        result = scan_object(mkv)
-    elif args.command == 'trim':
-        result = process_object(mkv, dest)
-    elif args.command == 'smart':
-        result = smart_object(mkv, dest)
-    return result
+        return scan_object(mkv, diff)
+    return finish_object(mkv, dest, diff)
 
 
 NAME_MAX = 50
@@ -247,7 +286,7 @@ def format_track_table(tracks: list) -> str:
     return header + '\n' + divider + '\n' + '\n'.join(all_rows) + '\n'
 
 
-def scan_object(mkv: MKV) -> bool:
+def scan_object(mkv: MKV, diff: int = 0) -> bool:
     import shutil
     global scan_size
     all_tracks = sorted(mkv.tracks_non_video, key=lambda t: not t.enabled)
@@ -260,50 +299,14 @@ def scan_object(mkv: MKV) -> bool:
     term_w = shutil.get_terminal_size().columns
     sep = '=' * min(term_w, 100)
 
-    out = f'\n{mkv.file_path.name}\n'
+    out = f'\n{diff_prefix(diff)}{mkv.file_path.name}\n'
     out += format_track_table(all_tracks)
-    if args.perfile:
-        file_diff = sum(t.size for t in all_tracks if not t.enabled)
-        if file_diff > 0:
-            out += f'  Approx space diff ~ -{humanize.naturalsize(file_diff, binary=True)}\n'
     out += f'\n{sep}'
     tqdm.write(out)
     return False
 
 
-def smart_object(mkv: MKV, dest: Path) -> int:
-    # Only audio changes trigger reprocessing; subtitle-only deltas skipped.
-    audio_tracks = mkv.tracks_by_type.get('audio', [])
-    if all(t.enabled for t in audio_tracks):
-        return 0
-
-    return finish_object(mkv, dest)
-
-
-def process_object(mkv: MKV, dest: Path) -> int:
-    enabled: list[Track] = []
-    if args.audio:
-        enabled.extend([t for t in mkv.tracks_by_type.get('audio', []) if t.language in args.audio])
-    if args.subtitle:
-        enabled.extend([t for t in mkv.tracks_by_type.get('subtitles', []) if t.language in args.subtitle])
-    # no -s → all subtitles removed (same behaviour as smart)
-
-    # Skip if audio set unchanged (subtitle-only diffs do not qualify).
-    current_audio = {t for t in mkv.tracks_non_video if t.enabled and t.type == 'audio'}
-    target_audio = {t for t in enabled if t.type == 'audio'}
-    if current_audio == target_audio:
-        return 0
-
-    for track in mkv.tracks_non_video:
-        track.enabled = track in enabled
-
-    ensure_min_enabled(mkv, 'audio', args.audio)
-    ensure_min_enabled(mkv, 'subtitles', args.subtitle)
-
-    return finish_object(mkv, dest)
-
-
-def finish_object(mkv: MKV, dest: Path) -> int:
+def finish_object(mkv: MKV, dest: Path, diff: int = 0) -> int:
     if args.output:
         dest_l = Path(args.output).with_suffix('.mkv')
     elif args.inplace and not args.dry:
@@ -322,29 +325,19 @@ def finish_object(mkv: MKV, dest: Path) -> int:
     if not args.dry:
         enabled_tracks = [track for track in mkv.tracks_non_video if track.enabled]
         name = trunc_mid(mkv.file_path.name)
-        tqdm.write(f'\n{name}')
+        tqdm.write(f'\n{diff_prefix(diff)}{name}')
         tqdm.write('Selected:')
         for track in enabled_tracks:
             tqdm.write(f'  {track.description}')
         if args.interactive and not Util.ask_yes_no('Process?'):
             tqdm.write('  Skipped.')
             return 0
-        before_size = mkv.file_path.stat().st_size if args.perfile else 0
         error = Util.run_command_live(command)
         if args.inplace and not error:
-            if args.perfile:
-                after_size = dest_l.stat().st_size if dest_l.exists() else 0
             Util.replace_file(dest_l, mkv.file_path)
         elif error:
             tqdm.write(f'\033[91m  Error: {error}\033[0m')
             return 0
-        else:
-            if args.perfile:
-                after_size = dest_l.stat().st_size if dest_l.exists() else 0
-        if args.perfile and before_size:
-            diff = before_size - after_size
-            sign = '-' if diff >= 0 else '+'
-            tqdm.write(f'  Approx space diff ~ {sign}{humanize.naturalsize(abs(diff), binary=True)}')
 
     return 0
 
@@ -453,12 +446,18 @@ def main():
             sys.exit(0)
         print(f"Scanning {input_path}\n")
         try:
-            mkv = MKV(input_path, expanded=args.stats or args.perfile)
+            mkv = MKV(input_path, expanded=bool(args.stats or args.perfile or args.min_diff))
         except ValueError as e:
             sys.exit(f'Error: {e}')
         if args.command != 'trim':
             smart_tracks_disable_all(mkv)
-        rout_object(mkv, dest)
+        else:
+            apply_trim(mkv)
+        diff = sum(t.size for t in mkv.tracks_non_video if not t.enabled)
+        if args.min_diff and diff < args.min_diff:
+            print('Below --min cutoff. Skipping.')
+        else:
+            rout_object(mkv, dest, diff)
     else:
         process_dir(input_path, dest)
 

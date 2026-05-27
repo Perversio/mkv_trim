@@ -128,7 +128,9 @@ mkv_trim <command> [options] [path]
 | `-W` | `--weights` | Path to custom JSON weights file |
 | `-R` | `--recursive` | Scan subdirectories |
 | `-L` | `--inplace` | Replace files in place (no `Trim/` folder) |
-| `-S` | `--stats` | Print approximate disk space saved |
+| `-S` | `--stats` | Print approximate total disk space saved |
+| `-P` | `--perfile` | Show per-file `[diff]` prefix (estimated space saved) |
+| `-M` | `--min SIZE` | Minimum estimated diff to process file (e.g. `500M`, `1G`, `1.5GiB`) |
 | `-d` | `--dry` | Print `mkvmerge` commands without executing |
 | `-I` | `--interactive` | Ask confirmation before each file |
 | `-V` | `--version` | Print version and exit |

@@ -20,7 +20,9 @@ Options:
   -R / --recursive   Scan subdirectories
   -L / --inplace     Replace files in place (no Trim folder created)
   -S / --stats       Print approximate total disk space saved
-  -P / --perfile     Print approximate space diff per file
+  -P / --perfile     Show per-file [diff] prefix (estimated space saved per file)
+  -M / --min SIZE    Minimum estimated diff for a file to be processed/scanned.
+                     Accepts human-readable size: 500M, 1G, 1.5GiB, 2GB.
   -d / --dry         Print mkvmerge commands without executing
   -I / --interactive Ask confirmation before processing each file (smart/trim, no-op with -d)
   -V / --version     Print version (no command required)

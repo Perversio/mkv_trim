@@ -122,8 +122,8 @@ mkv_trim <command> [options] [path]
 
 | Flag | Long | Description |
 |------|------|-------------|
-| `-a` | `--audio` | Audio languages to keep. Comma-separated: `-a eng,jpn` |
-| `-s` | `--subtitle` | Subtitle languages to keep. Omit to remove all subtitles. |
+| `-a` | `--audio` | Audio languages to keep. Comma-separated: `-a eng,jpn`. 3-letter ISO 639-2/3 codes. Invalid codes skipped. |
+| `-s` | `--subtitle` | Subtitle languages to keep. Omit to remove all subtitles. 3-letter ISO 639-2/3 codes. |
 | `-o` | `--output` | Output file path (overrides default `Trim/` folder) |
 | `-W` | `--weights` | Path to custom JSON weights file |
 | `-R` | `--recursive` | Scan subdirectories |
@@ -133,7 +133,7 @@ mkv_trim <command> [options] [path]
 | `-I` | `--interactive` | Ask confirmation before each file |
 | `-V` | `--version` | Print version and exit |
 
-Accepts ISO 639-1 (`en`), ISO 639-2 (`eng`), or ISO 639-3 codes. Full list in `data/languages.json`.
+3-letter ISO 639-2/3 codes only (e.g. `eng`, `jpn`, `und`). Invalid codes skipped with a warning. Full list in `data/languages.json`.
 
 ### Usage notes
 

@@ -7,11 +7,10 @@ import humanize
 import argparse
 import signal
 import json
-import time
 import sys
 import os
 
-version = '1.1.0'
+version = '1.1.1'
 args: argparse.Namespace
 input_path: Path = Path.cwd()
 scan_size: int = 0
@@ -23,7 +22,7 @@ def signal_handler(sig, frame):
     sys.exit('Interrupted by user')
 
 
-BOOL_FLAGS = {'-R', '-S', '-d', '-L', '-h', '-V', '-I'}
+BOOL_FLAGS = {'-R', '-S', '-P', '-d', '-L', '-h', '-V', '-I'}
 LANG_OPTIONS: set = set()
 
 
@@ -34,9 +33,9 @@ def load_lang_options() -> set:
             data = json.load(f)
         codes = set()
         for entry in data:
-            for key in ('iso1', 'iso2', 'iso3'):
+            for key in ('iso2', 'iso3'):  # 3-letter codes only
                 code = entry.get(key, '').strip()
-                if code:
+                if len(code) == 3:
                     codes.add(code)
         return codes
     except (FileNotFoundError, json.JSONDecodeError):
@@ -61,11 +60,13 @@ def expand_argv(argv):
 
 
 def lang_type(value):
-    langs = [v.strip() for v in value.split(',')]
-    for lang in langs:
-        if lang not in LANG_OPTIONS:
-            raise argparse.ArgumentTypeError(f"invalid language code: '{lang}'")
-    return langs
+    result = []
+    for lang in (v.strip() for v in value.split(',')):
+        if lang in LANG_OPTIONS:
+            result.append(lang)
+        else:
+            print(f"Warning: unknown language code '{lang}' — skipped", file=sys.stderr)
+    return result
 
 
 def get_arguments(description):
@@ -88,6 +89,7 @@ def get_arguments(description):
     parser.add_argument('--recursive', '-R', action='store_true', help=argparse.SUPPRESS)
     parser.add_argument('--inplace', '-L', action='store_true', help=argparse.SUPPRESS)
     parser.add_argument('--stats', '-S', action='store_true', help=argparse.SUPPRESS)
+    parser.add_argument('--perfile', '-P', action='store_true', help=argparse.SUPPRESS)
     parser.add_argument('--weights', '-W', type=str, help=argparse.SUPPRESS)
     parser.add_argument('--interactive', '-I', action='store_true', help=argparse.SUPPRESS)
 
@@ -162,9 +164,9 @@ def process_dir(folder: Path, dest: Path) -> int:
 
     for file in files:
         try:
-            mkv: MKV = MKV(file, expanded=args.stats)
+            mkv: MKV = MKV(file, expanded=args.stats or args.perfile)
         except ValueError as e:
-            print(f'  skipping: {e}')
+            tqdm.write(f'  skipping: {e}')
             pbar.update()
             continue
         mkv.weights = default_weights
@@ -203,16 +205,16 @@ def process_dir(folder: Path, dest: Path) -> int:
     else:
         print(f'Found {len(objects)} eligible files of {len(files)}')
 
-    for mkv in objects:
-        count += 1
-        lines = 0
-        if len(files) > 10 and args.command != 'scan':
-            print(f'Processing {count}/{len(objects)}')
-            lines += 1
-        lines += rout_object(mkv, dest)
-        if lines > 0:
-            sys.stdout.write("\033[F\033[K" * lines)
-            sys.stdout.flush()
+    if args.command != 'scan':
+        pbar2 = tqdm(total=len(objects), unit='file', position=0, leave=True)
+        for mkv in objects:
+            count += 1
+            rout_object(mkv, dest)
+            pbar2.update()
+        pbar2.close()
+    else:
+        for mkv in objects:
+            rout_object(mkv, dest)
 
     return result
 
@@ -280,8 +282,8 @@ def scan_object(mkv: MKV) -> bool:
 
     out = f'\n{mkv.file_path.name}\n'
     out += format_track_table(all_tracks)
-    out += f'\n{sep}\n'
-    print(out)
+    out += f'\n{sep}'
+    tqdm.write(out)
     return False
 
 
@@ -296,16 +298,12 @@ def smart_object(mkv: MKV, dest: Path) -> int:
         change |= mkv.len_tracks(types=['subtitles']) > 0
 
     if not change:
-        Util.print(f'No changes found for {mkv.file_path.name} => skipping')
-        time.sleep(2)
-        return 1
+        return 0
 
     return finish_object(mkv, dest)
 
 
 def process_object(mkv: MKV, dest: Path) -> int:
-    lines: int = 0
-
     enabled: list[Track] = []
     if args.audio:
         enabled.extend([t for t in mkv.tracks_by_type.get('audio', []) if t.language in args.audio])
@@ -315,9 +313,7 @@ def process_object(mkv: MKV, dest: Path) -> int:
 
     current_enabled = [t for t in mkv.tracks_non_video if t.enabled]
     if set(enabled) == set(current_enabled):
-        Util.print(f'No changes found for {mkv.file_path.name} => skipping')
-        time.sleep(2)
-        return 1
+        return 0
 
     for track in mkv.tracks_non_video:
         track.enabled = track in enabled
@@ -329,8 +325,6 @@ def process_object(mkv: MKV, dest: Path) -> int:
 
 
 def finish_object(mkv: MKV, dest: Path) -> int:
-    lines: int = 0
-
     if args.output:
         dest_l = Path(args.output).with_suffix('.mkv')
     elif args.inplace and not args.dry:
@@ -348,24 +342,32 @@ def finish_object(mkv: MKV, dest: Path) -> int:
 
     if not args.dry:
         enabled_tracks = [track for track in mkv.tracks_non_video if track.enabled]
-        Util.print(f'{mkv.file_path.name}')
-        print('Selected:')
-        lines += 2
+        name = trunc_mid(mkv.file_path.name)
+        tqdm.write(f'\n{name}')
+        tqdm.write('Selected:')
         for track in enabled_tracks:
-            print(f'{track.description}')
-            lines += 1
+            tqdm.write(f'  {track.description}')
         if args.interactive and not Util.ask_yes_no('Process?'):
-            print('Skipped.')
+            tqdm.write('  Skipped.')
             return 0
+        before_size = mkv.file_path.stat().st_size if args.perfile else 0
         error = Util.run_command_live(command)
-        lines += 1
         if args.inplace and not error:
+            if args.perfile:
+                after_size = dest_l.stat().st_size if dest_l.exists() else 0
             Util.replace_file(dest_l, mkv.file_path)
         elif error:
-            print(f'{mkv.file_path.name}\n\033[91m{error}\033[0m')
-            lines = 0
+            tqdm.write(f'\033[91m  Error: {error}\033[0m')
+            return 0
+        else:
+            if args.perfile:
+                after_size = dest_l.stat().st_size if dest_l.exists() else 0
+        if args.perfile and before_size:
+            diff = before_size - after_size
+            sign = '-' if diff >= 0 else '+'
+            tqdm.write(f'  Approx space diff ~ {sign}{humanize.naturalsize(abs(diff), binary=True)}')
 
-    return lines
+    return 0
 
 
 def ensure_min_enabled(mkv: MKV, track_type: str, track_langs: list = None):
@@ -465,7 +467,7 @@ def main():
             sys.exit(0)
         print(f"Scanning {input_path}\n")
         try:
-            mkv = MKV(input_path, expanded=args.stats)
+            mkv = MKV(input_path, expanded=args.stats or args.perfile)
         except ValueError as e:
             sys.exit(f'Error: {e}')
         if args.command != 'trim':

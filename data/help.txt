@@ -12,14 +12,15 @@ Commands:
 
 Options:
   -a / --audio       Audio languages to keep. Comma-separated: -a eng,jpn
-                     Accepts ISO 639-1 (en), ISO 639-2 (eng), or ISO 639-3 codes
+                     Accepts 3-letter ISO 639-2/3 codes. Invalid codes are skipped.
   -s / --subtitle    Subtitle languages to keep. Comma-separated: -s eng,jpn
-                     Omit to remove all subtitles.
+                     Accepts 3-letter ISO 639-2/3 codes. Omit to remove all subtitles.
   -o / --output      Output file path (overrides Trim/ folder default)
   -W / --weights     Path to custom JSON weights file
   -R / --recursive   Scan subdirectories
   -L / --inplace     Replace files in place (no Trim folder created)
-  -S / --stats       Print approximate disk space saved
+  -S / --stats       Print approximate total disk space saved
+  -P / --perfile     Print approximate space diff per file
   -d / --dry         Print mkvmerge commands without executing
   -I / --interactive Ask confirmation before processing each file (smart/trim, no-op with -d)
   -V / --version     Print version (no command required)

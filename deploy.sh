@@ -22,6 +22,17 @@ if ! command -v python3 &>/dev/null; then
     echo "  Arch:          sudo pacman -S python"
     exit 1
 fi
+PY_VER=$(python3 -c 'import sys; print(f"{sys.version_info.major}.{sys.version_info.minor}")')
+PY_MIN="3.10"
+if ! python3 -c "import sys; sys.exit(0 if sys.version_info >= (3,10) else 1)"; then
+    echo "ERROR: Python $PY_MIN+ required, found $PY_VER"
+    echo "Install via package manager:"
+    echo "  Ubuntu/Debian: sudo apt install python3.10"
+    echo "  Fedora/RHEL:   sudo dnf install python3.10"
+    echo "  Arch:          sudo pacman -S python"
+    exit 1
+fi
+echo "python3: $(which python3) ($PY_VER)"
 
 # --- create venv if missing ---
 if [ ! -f "$SCRIPT_DIR/.venv/bin/activate" ]; then

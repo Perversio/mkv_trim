@@ -18,6 +18,15 @@ if ! command -v python3 &>/dev/null; then
     echo "  brew install python"
     exit 1
 fi
+PY_VER=$(python3 -c 'import sys; print(f"{sys.version_info.major}.{sys.version_info.minor}")')
+PY_MIN="3.10"
+if ! python3 -c "import sys; sys.exit(0 if sys.version_info >= (3,10) else 1)"; then
+    echo "ERROR: Python $PY_MIN+ required, found $PY_VER"
+    echo "Install via Homebrew:"
+    echo "  brew install python"
+    exit 1
+fi
+echo "python3: $(which python3) ($PY_VER)"
 
 # --- create venv if missing ---
 if [ ! -f "$SCRIPT_DIR/.venv/bin/activate" ]; then

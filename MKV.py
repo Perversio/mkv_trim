@@ -88,7 +88,12 @@ class MKV:
             cmd.extend(['--engage', 'keep_track_statistics_tags'])
         cmd.extend(['-J', self.file_path])
         output = subprocess.run(cmd, capture_output=True, text=True)
-        json_data = json.loads(output.stdout)
+        if output.returncode not in (0, 1):  # 0=ok, 1=warnings; 2+=error
+            raise ValueError(f'mkvmerge cannot read file: {self.file_path}')
+        try:
+            json_data = json.loads(output.stdout)
+        except json.JSONDecodeError as e:
+            raise ValueError(f'mkvmerge returned invalid data for: {self.file_path}') from e
         for track_data in json_data['tracks']:
             track = Track(track_data)
             by_type_l: dict

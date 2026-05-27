@@ -160,7 +160,12 @@ def process_dir(folder: Path, dest: Path) -> int:
     smart: bool = args.command == 'scan' or args.command == 'smart'
 
     for file in files:
-        mkv: MKV = MKV(file, expanded=args.stats)
+        try:
+            mkv: MKV = MKV(file, expanded=args.stats)
+        except ValueError as e:
+            print(f'  skipping: {e}')
+            pbar.update()
+            continue
         mkv.weights = default_weights
         valid: bool = True
 
@@ -458,7 +463,10 @@ def main():
         if input_path.suffix.lower().lstrip('.') not in ('mkv', 'm4v', 'mp4'):
             sys.exit(0)
         print(f"Scanning {input_path}\n")
-        mkv = MKV(input_path, expanded=args.stats)
+        try:
+            mkv = MKV(input_path, expanded=args.stats)
+        except ValueError as e:
+            sys.exit(f'Error: {e}')
         if args.command != 'trim':
             smart_tracks_disable_all(mkv)
         rout_object(mkv, dest)

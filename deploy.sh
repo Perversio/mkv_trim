@@ -47,9 +47,9 @@ echo "Installing dependencies..."
 pip install --quiet --upgrade pip
 pip install --quiet pyinstaller tqdm humanize
 
-rm -rf "$SCRIPT_DIR"/build/
-rm -rf "$SCRIPT_DIR"/dist/
-rm -rf "$SCRIPT_DIR"/mkv_trim.spec
+sudo rm -rf "$SCRIPT_DIR"/build/
+sudo rm -rf "$SCRIPT_DIR"/dist/
+sudo rm -rf "$SCRIPT_DIR"/mkv_trim.spec
 
 bin=$(which pyinstaller)
 echo "pyinstaller: $bin"
@@ -66,11 +66,19 @@ deactivate
 DIST_DIR="$SCRIPT_DIR/dist/mkv_trim"
 INSTALL_DIR="/usr/local/lib/mkv_trim"
 
-rm -rf "$INSTALL_DIR"
-cp -r "$DIST_DIR" "$INSTALL_DIR"
-chmod +x "$INSTALL_DIR/mkv_trim"
+# --- install (requires root) ---
+if [ "$(id -u)" -ne 0 ]; then
+    echo "Installing to $INSTALL_DIR (requires sudo)..."
+    SUDO=sudo
+else
+    SUDO=""
+fi
 
-rm -f /usr/local/bin/mkv_trim
-ln -s "$INSTALL_DIR/mkv_trim" /usr/local/bin/mkv_trim
+$SUDO rm -rf "$INSTALL_DIR"
+$SUDO cp -r "$DIST_DIR" "$INSTALL_DIR"
+$SUDO chmod +x "$INSTALL_DIR/mkv_trim"
+
+$SUDO rm -f /usr/local/bin/mkv_trim
+$SUDO ln -s "$INSTALL_DIR/mkv_trim" /usr/local/bin/mkv_trim
 
 echo "Done. mkv_trim installed at /usr/local/bin/mkv_trim"

@@ -63,7 +63,7 @@ sudo apt install python3 python3-venv mkvtoolnix   # Ubuntu/Debian
 # Clone and deploy
 git clone https://github.com/Perversio/mkv_trim.git
 cd mkv_trim
-sudo bash deploy.sh
+bash deploy.sh
 ```
 
 The script will:

@@ -438,6 +438,8 @@ def main():
         input_size = Util.get_size(input_path)
 
     if input_path.is_file():
+        if input_path.suffix.lower().lstrip('.') not in ('mkv', 'm4v', 'mp4'):
+            sys.exit(0)
         print(f"Scanning {input_path}\n")
         mkv = MKV(input_path, expanded=args.stats)
         if args.command != 'trim':

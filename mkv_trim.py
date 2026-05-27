@@ -11,7 +11,7 @@ import sys
 import os
 import re
 
-version = '1.2.0'
+version = '1.2.1'
 args: argparse.Namespace
 input_path: Path = Path.cwd()
 scan_size: int = 0
@@ -376,12 +376,18 @@ def smart_tracks_disable(mkv: MKV, track_type: str = None, track_langs: list = N
         by_lang: list[Track] = mkv.tracks_by_type_lang.get(track_type, {}).get(lang, None)
         if by_lang is None or len(by_lang) == 0:
             continue
-        keep_lang = lang in track_langs
+        # Unspecified langs: disable everything regardless of track_name.
+        # ensure_min_enabled handles the "no tracks left" fallback.
+        if lang not in track_langs:
+            for track in by_lang:
+                track.enabled = False
+            continue
+        # Specified lang: keep unnamed tracks + best-scoring named track.
         best_named_set = False
         for track in by_lang:
             if not track.track_name:
                 track.enabled = True
-            elif keep_lang and not best_named_set:
+            elif not best_named_set:
                 track.enabled = True
                 best_named_set = True
             else:

@@ -10,7 +10,7 @@ import json
 import sys
 import os
 
-version = '1.1.3'
+version = '1.1.4'
 args: argparse.Namespace
 input_path: Path = Path.cwd()
 scan_size: int = 0
@@ -156,8 +156,7 @@ def process_dir(folder: Path, dest: Path) -> int:
     count: int = 0
 
     print(f'Scanning {folder}')
-    # Total pbar (position=1, stays). mkvmerge inner bar uses position=0 (transient).
-    pbar = tqdm(total=len(files), unit='file', position=1, leave=True, desc='Total')
+    pbar = tqdm(total=len(files), unit='file', position=0, leave=True, desc='Total')
 
     smart: bool = args.command == 'scan' or args.command == 'smart'
 
@@ -263,6 +262,10 @@ def scan_object(mkv: MKV) -> bool:
 
     out = f'\n{mkv.file_path.name}\n'
     out += format_track_table(all_tracks)
+    if args.perfile:
+        file_diff = sum(t.size for t in all_tracks if not t.enabled)
+        if file_diff > 0:
+            out += f'  Approx space diff ~ -{humanize.naturalsize(file_diff, binary=True)}\n'
     out += f'\n{sep}'
     tqdm.write(out)
     return False

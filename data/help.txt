@@ -37,16 +37,6 @@ Examples:
   mkv_trim smart -RLa eng,jpn /movies      Smart select, replace files in place
   mkv_trim smart -RSda eng,jpn /movies     Dry run with stats, no files modified
 
-Radarr Integration:
-  Configure as Custom Script in Radarr Settings > Connections.
-  Path:      /usr/local/bin/mkv_trim
-  Arguments: smart -a eng,jpn -L          (in-place replace)
-         or: smart -a eng,jpn -o /output/path.mkv
-  Events:    On Import, On Upgrade
-
-  Test connection event handled automatically (exits 0).
-  File path read from radarr_moviefile_path env var when -i not given.
-
 Weighting (smart command):
   Track score = channel count + forced/default flags + name keyword match + codec match.
   Override weights by passing a JSON file via -W. Supported keys:

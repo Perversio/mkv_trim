@@ -11,7 +11,7 @@ import time
 import sys
 import os
 
-version = '1.0.8'
+version = '1.0.9'
 args: argparse.Namespace
 input_path: Path = Path.cwd()
 scan_size: int = 0

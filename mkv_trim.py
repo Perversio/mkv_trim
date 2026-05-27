@@ -11,7 +11,7 @@ import sys
 import os
 import re
 
-version = '1.2.1'
+version = '1.2.2'
 args: argparse.Namespace
 input_path: Path = Path.cwd()
 scan_size: int = 0
@@ -169,7 +169,8 @@ def process_dir(folder: Path, dest: Path) -> int:
     count: int = 0
 
     print(f'Scanning {folder}')
-    pbar = tqdm(total=len(files), unit='file', position=0, leave=True, desc='Total')
+    # Total above (position=1, transient). mkvmerge inner bar at position=0.
+    pbar = tqdm(total=len(files), unit='file', position=1, leave=False, desc='Total')
 
     smart: bool = args.command == 'scan' or args.command == 'smart'
     expand: bool = bool(args.stats or args.perfile or args.min_diff)

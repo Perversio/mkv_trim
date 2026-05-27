@@ -62,9 +62,9 @@ bash deploy_mac.sh
 The script will:
 1. Check `mkvmerge` and `python3` are present
 2. Create `.venv` and install Python packages automatically
-3. Bundle the binary + `mkvmerge` + data files via PyInstaller (`--onedir`)
-4. Ad-hoc codesign the bundle (satisfies macOS Gatekeeper without a paid Developer ID)
-5. Install to `/usr/local/lib/mkv_trim/` and symlink to `/usr/local/bin/mkv_trim`
+3. Bundle a single self-contained binary with `mkvmerge` + data files via PyInstaller (`--onefile`)
+4. Ad-hoc codesign the binary (satisfies macOS Gatekeeper without a paid Developer ID)
+5. Install to `/usr/local/bin/mkv_trim`
 
 ### Linux
 
@@ -83,24 +83,24 @@ bash deploy.sh
 The script will:
 1. Check `mkvmerge` and `python3` are present
 2. Create `.venv` and install Python packages automatically
-3. Bundle the binary + `mkvmerge` + data files via PyInstaller (`--onedir`)
-4. Install to `/usr/local/lib/mkv_trim/` and symlink to `/usr/local/bin/mkv_trim`
+3. Bundle a single self-contained binary with `mkvmerge` + data files via PyInstaller (`--onefile`)
+4. Install to `/usr/local/bin/mkv_trim`
 
 ### Docker
 
 The built binary bundles `mkvmerge` — no MKVToolNix installation needed in the container.
-Build on the host (matching target OS architecture), then copy the output directory:
+Build on the host (matching target OS architecture), then copy the single binary:
 
 ```dockerfile
 FROM debian:bookworm-slim
 
-COPY dist/mkv_trim /opt/mkv_trim
-RUN ln -s /opt/mkv_trim/mkv_trim /usr/local/bin/mkv_trim
+COPY dist/mkv_trim /usr/local/bin/mkv_trim
+RUN chmod +x /usr/local/bin/mkv_trim
 
 ENTRYPOINT ["mkv_trim"]
 ```
 
-> Build the binary on a Linux machine first (`bash deploy.sh`), then use `dist/mkv_trim/` as the `COPY` source.
+> Build the binary on a Linux machine first (`bash deploy.sh`), then use `dist/mkv_trim` as the `COPY` source. For Alpine-based images (e.g. linuxserver.io), use `bash deploy_alpine.sh` for a musl-compatible binary.
 
 ---
 

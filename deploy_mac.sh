@@ -48,7 +48,7 @@ rm -rf "$SCRIPT_DIR"/mkv_trim.spec
 bin=$(which pyinstaller)
 echo "pyinstaller: $bin"
 
-"$bin" --onedir --strip --noconfirm \
+"$bin" --onefile --strip --noconfirm \
     --add-data "$SCRIPT_DIR/data/help.txt:data" \
     --add-data "$SCRIPT_DIR/data/default_weights.json:data" \
     --add-data "$SCRIPT_DIR/data/languages.json:data" \
@@ -57,20 +57,19 @@ echo "pyinstaller: $bin"
 
 deactivate
 
-DIST_DIR="$SCRIPT_DIR/dist/mkv_trim"
-INSTALL_DIR="/usr/local/lib/mkv_trim"
+DIST_BIN="$SCRIPT_DIR/dist/mkv_trim"
+INSTALL_BIN="/usr/local/bin/mkv_trim"
 
 # ad-hoc sign — satisfies Gatekeeper without a paid Developer ID
-codesign --force --deep --sign - "$DIST_DIR/mkv_trim"
+codesign --force --sign - "$DIST_BIN"
 
 # strip quarantine flag
-xattr -cr "$DIST_DIR"
+xattr -c "$DIST_BIN"
 
-rm -rf "$INSTALL_DIR"
-cp -r "$DIST_DIR" "$INSTALL_DIR"
-chmod +x "$INSTALL_DIR/mkv_trim"
+# Remove any prior install (older dir-layout + symlink).
+rm -rf /usr/local/lib/mkv_trim
+rm -f "$INSTALL_BIN"
 
-rm -f /usr/local/bin/mkv_trim
-ln -s "$INSTALL_DIR/mkv_trim" /usr/local/bin/mkv_trim
+install -m 0755 "$DIST_BIN" "$INSTALL_BIN"
 
-echo "Done. mkv_trim installed at /usr/local/bin/mkv_trim"
+echo "Done. mkv_trim installed at $INSTALL_BIN"

@@ -54,7 +54,7 @@ sudo rm -rf "$SCRIPT_DIR"/mkv_trim.spec
 bin=$(which pyinstaller)
 echo "pyinstaller: $bin"
 
-"$bin" --onedir --strip --noconfirm \
+"$bin" --onefile --strip --noconfirm \
     --add-data "$SCRIPT_DIR/data/help.txt:data" \
     --add-data "$SCRIPT_DIR/data/default_weights.json:data" \
     --add-data "$SCRIPT_DIR/data/languages.json:data" \
@@ -63,22 +63,21 @@ echo "pyinstaller: $bin"
 
 deactivate
 
-DIST_DIR="$SCRIPT_DIR/dist/mkv_trim"
-INSTALL_DIR="/usr/local/lib/mkv_trim"
+DIST_BIN="$SCRIPT_DIR/dist/mkv_trim"
+INSTALL_BIN="/usr/local/bin/mkv_trim"
 
 # --- install (requires root) ---
 if [ "$(id -u)" -ne 0 ]; then
-    echo "Installing to $INSTALL_DIR (requires sudo)..."
+    echo "Installing to $INSTALL_BIN (requires sudo)..."
     SUDO=sudo
 else
     SUDO=""
 fi
 
-$SUDO rm -rf "$INSTALL_DIR"
-$SUDO cp -r "$DIST_DIR" "$INSTALL_DIR"
-$SUDO chmod +x "$INSTALL_DIR/mkv_trim"
+# Remove any prior install (dir layout from older versions + symlink).
+$SUDO rm -rf /usr/local/lib/mkv_trim
+$SUDO rm -f "$INSTALL_BIN"
 
-$SUDO rm -f /usr/local/bin/mkv_trim
-$SUDO ln -s "$INSTALL_DIR/mkv_trim" /usr/local/bin/mkv_trim
+$SUDO install -m 0755 "$DIST_BIN" "$INSTALL_BIN"
 
-echo "Done. mkv_trim installed at /usr/local/bin/mkv_trim"
+echo "Done. mkv_trim installed at $INSTALL_BIN"

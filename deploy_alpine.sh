@@ -23,7 +23,7 @@ docker run --rm \
 
         rm -rf build/ dist/ mkv_trim.spec
 
-        .venv_alpine/bin/pyinstaller --onedir --strip --noconfirm \
+        .venv_alpine/bin/pyinstaller --onefile --strip --noconfirm \
             --add-data data/help.txt:data \
             --add-data data/default_weights.json:data \
             --add-data data/languages.json:data \
@@ -33,5 +33,5 @@ docker run --rm \
         echo "Build complete."
     '
 
-echo "Done. Alpine binary at $SCRIPT_DIR/dist/mkv_trim/"
-echo "Copy dist/mkv_trim/ to your container scripts folder."
+echo "Done. Alpine binary at $SCRIPT_DIR/dist/mkv_trim"
+echo "Copy dist/mkv_trim to your container scripts folder."

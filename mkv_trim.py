@@ -10,7 +10,7 @@ import json
 import sys
 import os
 
-version = '1.1.2'
+version = '1.1.3'
 args: argparse.Namespace
 input_path: Path = Path.cwd()
 scan_size: int = 0
@@ -156,9 +156,8 @@ def process_dir(folder: Path, dest: Path) -> int:
     count: int = 0
 
     print(f'Scanning {folder}')
-    pbar = tqdm(total=len(files), unit='file', position=0, leave=True)
-
-    objects: list[MKV] = []
+    # Total pbar (position=1, stays). mkvmerge inner bar uses position=0 (transient).
+    pbar = tqdm(total=len(files), unit='file', position=1, leave=True, desc='Total')
 
     smart: bool = args.command == 'scan' or args.command == 'smart'
 
@@ -170,7 +169,6 @@ def process_dir(folder: Path, dest: Path) -> int:
             pbar.update()
             continue
         mkv.weights = default_weights
-        valid: bool = True
 
         if smart:
             smart_tracks_disable_all(mkv)
@@ -178,40 +176,26 @@ def process_dir(folder: Path, dest: Path) -> int:
                 pbar.update()
                 continue
 
-        # Scan shows any file with any delta; smart/trim only process audio deltas.
+        # Only audio deltas qualify (subtitle-only changes skipped, even in scan).
         audio_tracks = mkv.tracks_by_type.get('audio', [])
-        if args.command == 'scan':
-            needs_change = any(not t.enabled for t in mkv.tracks_non_video)
-        elif smart:
+        if smart:
             needs_change = not all(t.enabled for t in audio_tracks)
         elif args.audio:
             needs_change = any(t.language not in args.audio for t in audio_tracks)
         else:
             needs_change = False
-        valid &= needs_change
 
-        if valid:
-            objects.append(mkv)
+        if needs_change:
+            count += 1
+            rout_object(mkv, dest)
         pbar.update()
 
     pbar.close()
 
-    if len(objects) == 0:
+    if count == 0:
         print('No eligible files found.')
-        return 0
     else:
-        print(f'Found {len(objects)} eligible files of {len(files)}')
-
-    if args.command != 'scan':
-        pbar2 = tqdm(total=len(objects), unit='file', position=1, leave=True, desc='Total')
-        for mkv in objects:
-            count += 1
-            rout_object(mkv, dest)
-            pbar2.update()
-        pbar2.close()
-    else:
-        for mkv in objects:
-            rout_object(mkv, dest)
+        print(f'\nProcessed {count} eligible files of {len(files)}')
 
     return result
 

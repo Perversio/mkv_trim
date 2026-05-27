@@ -32,6 +32,7 @@ class Track:
         self.frequency = props.get('audio_sampling_frequency', None)
 
         self.size = int(props.get('tag_number_of_bytes', 0))
+        self.bitrate = int(props.get('tag_bits_per_second', 0))
 
     def __repr__(self):
         return repr(self.__dict__)
@@ -130,14 +131,16 @@ class MKV:
             track.calc_weight(self.weights)
         audio_by_size: list[Track] = sorted(self.tracks_by_type.get('audio', []),  key=lambda t: t.size)
         audio_by_size.pop().weight += 1
+        # Tiebreaker: higher bitrate wins when weights match.
+        sort_key = lambda t: (t.weight, t.bitrate)
         for key in self.tracks_by_lang.keys():
-            self.tracks_by_lang[key] = sorted(self.tracks_by_lang[key], key=lambda t: t.weight, reverse=True)
+            self.tracks_by_lang[key] = sorted(self.tracks_by_lang[key], key=sort_key, reverse=True)
         for key in self.tracks_by_type.keys():
-            self.tracks_by_type[key] = sorted(self.tracks_by_type[key], key=lambda t: t.weight, reverse=True)
+            self.tracks_by_type[key] = sorted(self.tracks_by_type[key], key=sort_key, reverse=True)
         for key in self.tracks_by_type_lang.keys():
             for key_l in self.tracks_by_type_lang[key].keys():
                 self.tracks_by_type_lang[key][key_l] = sorted(self.tracks_by_type_lang[key][key_l],
-                                                              key=lambda t: t.weight, reverse=True)
+                                                              key=sort_key, reverse=True)
 
     def command(self, dest: Path, use_langs: bool = False) -> list[str]:
         dest_l = dest.with_suffix('.mkv')

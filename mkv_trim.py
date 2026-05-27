@@ -11,7 +11,7 @@ import sys
 import os
 import re
 
-version = '1.2.2'
+version = '1.2.3'
 args: argparse.Namespace
 input_path: Path = Path.cwd()
 scan_size: int = 0

@@ -1,9 +1,5 @@
 # mkv_trim
 
-> **MIT License** — provided "as is", without warranty of any kind.
-> Use at your own risk. No support, no guarantees, no roadmap.
-
----
 
 > **Note from the author:**
 > This tool does what I need it to do. I am not accepting feature requests,
@@ -217,8 +213,15 @@ Same as Radarr. Sonarr passes `sonarr_episodefile_path` — supported out of the
 | In-place, keep subs | `smart -a ukr,rus -s ukr,rus -L` |
 | Output to specific path | `smart -a ukr,rus -o /output/file.mkv` |
 
-> **Note:** Use `-L` (in-place) for \*arr integrations — Radarr/Sonarr track the original
-> file path. Writing to a `Trim/` subfolder will cause the media manager to lose track of the file.
+> **`-L` is required for \*arr integrations.**
+>
+> Radarr/Sonarr track the imported file by its exact path. Without `-L`, mkv_trim writes
+> the output to a `Trim/` subfolder and leaves the original untouched — the media manager
+> never sees the trimmed file and the original remains bloated in the library.
+>
+> With `-L`, mkv_trim replaces the library file in place. If hardlinks are enabled,
+> the original file in the download folder is **not affected** — the hardlink is broken
+> cleanly and seeding continues uninterrupted.
 
 ### Test connection event
 

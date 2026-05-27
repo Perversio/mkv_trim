@@ -26,7 +26,7 @@ using `mkvmerge`. No transcoding — pure stream copy, fast.
 - [Track Scoring](#track-scoring-smart-command)
 - [Radarr / Sonarr / \*arr Integration](#radarr--sonarr--arr-integration)
   - [Connect: Custom Script](#radarr-setup)
-  - [Import Using Script](#radarr-import-using-script-alternative)
+  - [Import Using Script](#radarr--sonarr-import-using-script-alternative)
 
 ## Features
 
@@ -244,35 +244,39 @@ No manual handling required.
 
 ---
 
-### Radarr: Import Using Script (alternative)
+### Radarr / Sonarr: Import Using Script (alternative)
 
-Radarr also supports **Settings → Media Management → Import Using Script**.
+Both Radarr and Sonarr support **Settings → Media Management → Import Using Script**.
 In this mode there is no arguments field — the script receives source/destination via env vars
 and is responsible for writing the output file itself.
 
-Use the included `radarr_import.sh` wrapper:
+Use the included `import.sh` wrapper:
 
 ```
-Import Script Path: /path/to/mkv_trim/radarr_import.sh
+Import Script Path: /path/to/mkv_trim/import.sh
 ```
 
 ```bash
 #!/bin/bash
-# radarr_import.sh — edit -a to match your language preferences
+# import.sh — edit -a to match your language preferences
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
+# Radarr:  radarr_sourcepath / radarr_destinationpath
+# Sonarr:  sonarr_sourcepath / sonarr_destinationpath
+SOURCE="${radarr_sourcepath:-$sonarr_sourcepath}"
+DEST="${radarr_destinationpath:-$sonarr_destinationpath}"
+
 exec "$SCRIPT_DIR/mkv_trim" smart \
     -a ukr,eng,jpn,und \
-    -o "$radarr_destinationpath" \
-    "$radarr_sourcepath"
+    -o "$DEST" \
+    "$SOURCE"
 ```
 
-`radarr_sourcepath` and `radarr_destinationpath` are set by Radarr automatically.
-The wrapper is in the repo root — copy it alongside the `mkv_trim` binary and make it executable:
+Copy `import.sh` alongside the `mkv_trim` binary and make it executable:
 
 ```bash
-chmod +x /path/to/mkv_trim/radarr_import.sh
+chmod +x /path/to/mkv_trim/import.sh
 ```
 
-> Do **not** use `-L` here — Radarr provides the destination path explicitly via `radarr_destinationpath`.
+> Do **not** use `-L` here — destination path is provided explicitly by \*arr.

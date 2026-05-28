@@ -19,13 +19,13 @@ docker run --rm \
 
         python3 -m venv .venv_alpine
         .venv_alpine/bin/pip install --quiet --upgrade pip
-        .venv_alpine/bin/pip install --quiet pyinstaller tqdm humanize
+        .venv_alpine/bin/pip install --quiet pyinstaller tqdm humanize pyyaml
 
         rm -rf build/ dist/ mkv_trim.spec
 
         .venv_alpine/bin/pyinstaller --onefile --strip --noconfirm \
             --add-data data/help.txt:data \
-            --add-data data/default_weights.json:data \
+            --add-data data/default_weights.yaml:data \
             --add-data data/languages.json:data \
             --add-binary "$(which mkvmerge):." \
             mkv_trim.py

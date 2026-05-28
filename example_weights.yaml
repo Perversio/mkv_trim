@@ -1,0 +1,35 @@
+# Example weights file — copy and customize, then pass via:
+#   mkv_trim smart -W /path/to/weights.yaml ...
+#
+# Keys are mkvmerge -J field paths (dot-separated).
+# Values: substring match patterns → integer scores.
+# Matching is case-insensitive and additive (multiple patterns can match).
+# Negative scores mark tracks for exclusion.
+#
+# Any mkvmerge track property can be used as a key. Common paths:
+#   codec                         top-level codec name (e.g. "TrueHD Atmos", "AC-3")
+#   properties.track_name         user-visible track name
+#   properties.language           ISO 639-2 language code
+#   properties.audio_channels     channel count (integer, matched as string)
+#   properties.default_track      "true" / "false"
+#   properties.forced_track       "true" / "false"
+
+codec:
+  TrueHD: 7
+  Atmos: 6
+  DTS: 5
+  AC3: 4
+  AC-3: 3
+  SubStationAlpha: 20
+  ass: 20
+  srt: 10
+
+properties.track_name:
+  dub: 100
+  orig: 100
+  comment: -1000
+  Mono: -1000
+
+# Uncomment to add bonus for 8-channel audio (on top of natural channel count):
+# properties.audio_channels:
+#   "8": 2

@@ -45,7 +45,7 @@ source "$SCRIPT_DIR/.venv/bin/activate"
 # --- install / upgrade dependencies ---
 echo "Installing dependencies..."
 pip install --quiet --upgrade pip
-pip install --quiet pyinstaller tqdm humanize
+pip install --quiet pyinstaller tqdm humanize pyyaml
 
 sudo rm -rf "$SCRIPT_DIR"/build/
 sudo rm -rf "$SCRIPT_DIR"/dist/
@@ -56,7 +56,7 @@ echo "pyinstaller: $bin"
 
 "$bin" --onefile --strip --noconfirm \
     --add-data "$SCRIPT_DIR/data/help.txt:data" \
-    --add-data "$SCRIPT_DIR/data/default_weights.json:data" \
+    --add-data "$SCRIPT_DIR/data/default_weights.yaml:data" \
     --add-data "$SCRIPT_DIR/data/languages.json:data" \
     --add-binary "$(which mkvmerge):." \
     "$SCRIPT_DIR"/mkv_trim.py

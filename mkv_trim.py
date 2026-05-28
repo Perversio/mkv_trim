@@ -1,3 +1,4 @@
+from concurrent.futures import ThreadPoolExecutor
 from MKV import MKV, Track
 from pathlib import Path
 from util import Util
@@ -10,7 +11,7 @@ import sys
 import os
 import re
 
-version = '1.3.0'
+version = '1.4.0'
 args: argparse.Namespace
 input_path: Path = Path.cwd()
 scan_size: int = 0
@@ -159,6 +160,14 @@ def validate_args():
                  "Please refer to --help for usage directions.")
 
 
+def _parse_mkv(file: Path, expand: bool):
+    """Worker: parse one MKV file (subprocess I/O). Returns (file, mkv, err_str)."""
+    try:
+        return file, MKV(file, expanded=expand), None
+    except ValueError as e:
+        return file, None, str(e)
+
+
 def process_dir(folder: Path, dest: Path) -> int:
     files: list[Path] = Util.list_dir_file_types(folder, extensions=['mkv', 'm4v', 'mp4'], recursive=args.recursive)
     files = [f for f in files if 'Trim' not in f.parts]
@@ -174,13 +183,18 @@ def process_dir(folder: Path, dest: Path) -> int:
     smart: bool = args.command == 'scan' or args.command == 'smart'
     expand: bool = bool(args.stats or args.perfile or args.min_diff)
 
+    # Parse all files in parallel (mkvmerge -J is subprocess I/O, safe to thread).
+    # Remux (finish_object) stays sequential — concurrent disk writes would thrash.
+    workers = min(os.cpu_count() or 4, len(files)) if files else 1
+    executor = ThreadPoolExecutor(max_workers=workers)
+    futures = [executor.submit(_parse_mkv, f, expand) for f in files]
+
     interrupted = False
     try:
-        for file in files:
-            try:
-                mkv: MKV = MKV(file, expanded=expand)
-            except ValueError as e:
-                tqdm.write(f'  skipping: {e}')
+        for future in futures:
+            file, mkv, err = future.result()  # KeyboardInterrupt propagates here
+            if err:
+                tqdm.write(f'  skipping: {err}')
                 pbar.update()
                 continue
             mkv.weights = default_weights
@@ -217,8 +231,11 @@ def process_dir(folder: Path, dest: Path) -> int:
             pbar.update()
     except KeyboardInterrupt:
         interrupted = True
+        executor.shutdown(wait=False, cancel_futures=True)
     finally:
         pbar.close()
+        if not interrupted:
+            executor.shutdown(wait=True)
 
     if interrupted:
         print(f'\nInterrupted by user. Processed {processed_count}/{count} eligible files before stop.')
@@ -438,16 +455,17 @@ def smart_tracks_disable(mkv: MKV, track_type: str = None, track_langs: list = N
 
 
 def load_weights() -> dict:
+    import yaml
     if args.weights:
         weights_path = Path(args.weights)
         if not weights_path.exists():
             sys.exit(f'Weights file not found: {weights_path}')
         with open(weights_path, 'r', encoding='utf-8') as f:
-            return json.load(f)
-    bundled = Util.resource_path('data/default_weights.json')
+            return yaml.safe_load(f) or {}
+    bundled = Util.resource_path('data/default_weights.yaml')
     try:
         with open(bundled, 'r', encoding='utf-8') as f:
-            return json.load(f)
+            return yaml.safe_load(f) or {}
     except FileNotFoundError:
         return {}
 

@@ -102,6 +102,39 @@ ENTRYPOINT ["mkv_trim"]
 
 > Build the binary on a Linux machine first (`bash deploy.sh`), then use `dist/mkv_trim` as the `COPY` source. For Alpine-based images (e.g. linuxserver.io), use `bash deploy_alpine.sh` for a musl-compatible binary.
 
+### *arr Integration (Radarr / Sonarr)
+
+`arr/import.sh` integrates with Radarr and Sonarr without the mkv_trim binary.
+Only dependency: **mkvtoolnix** (`mkvmerge`).
+
+Copy `arr/import.sh` and `arr/mkv_trim.conf` into your container's config directory
+(e.g. `/config/scripts/`). Edit `mkv_trim.conf` for your language preferences.
+
+**docker-compose.yml** — add to your existing *arr service:
+
+```yaml
+services:
+  radarr:
+    image: lscr.io/linuxserver/radarr:latest
+    environment:
+      - DOCKER_MODS=linuxserver/mods:universal-package-install
+      - INSTALL_PACKAGES=mkvtoolnix
+    volumes:
+      - /config/radarr:/config
+      - /movies:/movies
+    # mkvtoolnix is re-installed automatically on every container update
+```
+
+Configure in the Radarr/Sonarr UI — the same script handles both integration modes:
+
+| Mode | Location | Path |
+|------|----------|------|
+| Import Using Script | `Settings > Media Management > Import Using Script` | `/config/scripts/import.sh` |
+| Custom Script | `Settings > Connect > Custom Script` (On Import / On Upgrade) | `/config/scripts/import.sh` |
+
+The script auto-detects which mode is active from the environment variables *arr provides.
+If mkvmerge cannot process the file (non-MKV format, etc.), it falls back to a plain copy.
+
 ---
 
 ## Usage

@@ -1,0 +1,58 @@
+# Keys are mkvmerge -J field paths (dot-separated). Values are substring match patterns.
+# Matching is case-insensitive and additive. Negative scores exclude tracks.
+# Any mkvmerge track property path can be used as a key.
+
+properties.forced_track:  # mkvmerge boolean — "true" matches when flag is set
+  "true": 1
+
+properties.default_track:
+  "true": 1
+
+codec:                    # mkvmerge: track.codec
+  TrueHD: 7              # matches "TrueHD Atmos" too
+  DTS: 5
+  AC3: 4
+  AC-3: 3
+  SubStationAlpha: 2
+  ass: 2
+  srt: 1
+
+properties.track_name:    # mkvmerge: track.properties.track_name
+  # --- prefer ---
+  dub: 100
+  дуб: 100
+  ориг: 100
+  orig: 100
+  full: 50
+  профес: 50           # профессиональный (professional dub)
+  многог: 50           # многоголосый/ая (multi-voice)
+  mvo: 50
+  много: 50
+  полный: 30           # full dub
+  dvo: 40
+  двух: 40
+  forced: 50           # forced subtitles (foreign lines only)
+
+  # --- penalize ---
+  vo: -40
+  одно: -50
+  sdh: -20             # subtitles for deaf/hard of hearing
+  cc: -20              # closed captions
+  hi: -20              # hearing impaired
+  sign: -50            # signs & songs
+  любит: -500          # любительский (amateur dub)
+  фандаб: -500         # fandub
+
+  # --- exclude ---
+  comment: -1000
+  коммент: -1000
+  комент: -1000
+  director: -1000      # director's commentary
+  audio desc: -1000    # audio description (visually impaired)
+  described: -1000
+  описание: -1000      # Russian audio description
+  isolated: -1000      # isolated score/effects
+  interview: -1000
+  Авторский: -1000
+  Гаврилов: -1000
+  Mono: -1000

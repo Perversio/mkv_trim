@@ -6,6 +6,7 @@ import json
 
 class Track:
     def __init__(self, data: [dict]):
+        self._raw = data
         self.codec = data['codec']
         self.id = data['id']
         self.type = data['type']
@@ -53,21 +54,17 @@ class Track:
         self.weight = 0
         if self.channels:
             self.weight = int(self.channels)
-        self.weight += int(self.forced)
-        self.weight += int(self.default)
 
-        if self.track_name:
-            name_lower = self.track_name.casefold()
-            for sub_key, val in weights.get('track_name', {}).items():
-                if sub_key.casefold() in name_lower:
-                    self.weight += int(val)
-
-        if self.codec:
-            codec_key = 'audio_codec' if self.type == 'audio' else 'subtitle_codec'
-            codec_lower = self.codec.casefold()
-            for sub_key, val in weights.get(codec_key, {}).items():
-                if sub_key.casefold() in codec_lower:
-                    self.weight += int(val)
+        # Generic: keys are mkvmerge -J field paths (dot-separated).
+        # Navigate self._raw and substring-match each pattern against the field value.
+        for path, matches in weights.items():
+            val = self._raw
+            for key in path.split('.'):
+                val = val.get(key, '') if isinstance(val, dict) else ''
+            val_str = str(val).casefold()
+            for match_key, score in matches.items():
+                if str(match_key).casefold() in val_str:
+                    self.weight += int(score)
 
         return self.weight
 

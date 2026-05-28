@@ -1,4 +1,3 @@
-from concurrent.futures import ThreadPoolExecutor
 from MKV import MKV, Track
 from pathlib import Path
 from util import Util
@@ -11,7 +10,30 @@ import sys
 import os
 import re
 
-version = '1.4.1'
+version = '1.4.3'
+
+
+class _Tee:
+    """Mirror stdout to a log file, stripping ANSI escape codes."""
+    _ANSI = re.compile(r'\x1b\[[0-9;]*[A-Za-z]')
+
+    def __init__(self, stream, log_path: Path):
+        self._stream = stream
+        self._log = open(log_path, 'w', encoding='utf-8')
+
+    def write(self, data: str):
+        self._stream.write(data)
+        self._log.write(self._ANSI.sub('', data))
+
+    def flush(self):
+        self._stream.flush()
+        self._log.flush()
+
+    def isatty(self):
+        return self._stream.isatty()
+
+    def close(self):
+        self._log.close()
 args: argparse.Namespace
 input_path: Path = Path.cwd()
 scan_size: int = 0
@@ -51,11 +73,13 @@ def expand_argv(argv):
         else:
             result.append(arg)
     # treat last arg as input path if it looks like one
+    # (skip if it's already claimed as value for --log)
     if result and not result[-1].startswith('-'):
         last = result[-1]
+        prev = result[-2] if len(result) >= 2 else ''
         is_path = ('/' in last or '\\' in last or last in ('.', '..') or os.path.exists(last))
         is_lang = all(v.strip() in LANG_OPTIONS for v in last.split(','))
-        if is_path and not is_lang:
+        if is_path and not is_lang and prev != '--log':
             result = result[:-1] + ['-i', last]
     return result
 
@@ -105,6 +129,7 @@ def get_arguments(description):
     parser.add_argument('--min', '-M', dest='min_diff', type=size_type, default=0, help=argparse.SUPPRESS)
     parser.add_argument('--weights', '-W', type=str, help=argparse.SUPPRESS)
     parser.add_argument('--interactive', '-I', action='store_true', help=argparse.SUPPRESS)
+    parser.add_argument('--log', nargs='?', const='', default=None, metavar='PATH', help=argparse.SUPPRESS)
 
     global args
     args = parser.parse_args()
@@ -160,13 +185,6 @@ def validate_args():
                  "Please refer to --help for usage directions.")
 
 
-def _parse_mkv(file: Path, expand: bool):
-    """Worker: parse one MKV file (subprocess I/O). Returns (file, mkv, err_str)."""
-    try:
-        return file, MKV(file, expanded=expand), None
-    except ValueError as e:
-        return file, None, str(e)
-
 
 def process_dir(folder: Path, dest: Path) -> int:
     files: list[Path] = Util.list_dir_file_types(folder, extensions=['mkv', 'm4v', 'mp4'], recursive=args.recursive)
@@ -183,18 +201,13 @@ def process_dir(folder: Path, dest: Path) -> int:
     smart: bool = args.command == 'scan' or args.command == 'smart'
     expand: bool = bool(args.stats or args.perfile or args.min_diff)
 
-    # Parse all files in parallel (mkvmerge -J is subprocess I/O, safe to thread).
-    # Remux (finish_object) stays sequential — concurrent disk writes would thrash.
-    workers = min(os.cpu_count() or 4, len(files)) if files else 1
-    executor = ThreadPoolExecutor(max_workers=workers)
-    futures = [executor.submit(_parse_mkv, f, expand) for f in files]
-
     interrupted = False
     try:
-        for future in futures:
-            file, mkv, err = future.result()  # KeyboardInterrupt propagates here
-            if err:
-                tqdm.write(f'  skipping: {err}')
+        for file in files:
+            try:
+                mkv = MKV(file, expanded=expand)
+            except ValueError as e:
+                tqdm.write(f'  skipping: {e}')
                 pbar.update()
                 continue
             mkv.weights = default_weights
@@ -231,11 +244,8 @@ def process_dir(folder: Path, dest: Path) -> int:
             pbar.update()
     except KeyboardInterrupt:
         interrupted = True
-        executor.shutdown(wait=False, cancel_futures=True)
     finally:
         pbar.close()
-        if not interrupted:
-            executor.shutdown(wait=True)
 
     if interrupted:
         print(f'\nInterrupted by user. Processed {processed_count}/{count} eligible files before stop.')
@@ -470,6 +480,7 @@ def main():
         sys.stderr.reconfigure(line_buffering=True)
     except AttributeError:
         pass
+
     # When running as a frozen bundle, prefer the bundled mkvmerge
     if getattr(sys, 'frozen', False):
         bundle_dir = getattr(sys, '_MEIPASS', str(Path(sys.executable).parent))
@@ -482,6 +493,10 @@ def main():
 
     validate_args()
     default_weights = load_weights()
+
+    if args.log is not None:
+        log_path = Path(args.log) if args.log else Path.cwd() / 'mkv_trim.log'
+        sys.stdout = _Tee(sys.stdout, log_path)
 
     print('\nStart mkv_trim' + ' Dry Run' if args.dry else '')
 
@@ -535,6 +550,10 @@ def main():
         print(f'\nApprox space diff ~ {humanize.naturalsize(input_size, binary=True)}')
 
     print('\nEnd trim_audio' + ' Dry Run' if args.dry else '')
+
+    if isinstance(sys.stdout, _Tee):
+        sys.stdout.close()
+        sys.stdout = sys.stdout._stream
 
 
 if __name__ == '__main__':

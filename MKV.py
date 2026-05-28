@@ -1,5 +1,6 @@
 from pathlib import Path
 from enum import Enum
+from util import Util
 import subprocess
 import json
 
@@ -46,7 +47,8 @@ class Track:
         t = self.TYPE_SHORT.get(self.type, self.type)
         w = '-' if self.weight < 0 else str(self.weight)
         ch = str(self.channels) if self.channels else ''
-        return f'[{t}] [{w:>4}]  {self.language:<4}  {self.codec:<22}  {ch:<3}  \'{self.track_name}\''
+        name = Util.trunc_mid(self.track_name or '')
+        return f'[{t}] [{w:>4}]  {self.language:<4}  {self.codec:<22}  {ch:<3}  \'{name}\''
 
     def calc_weight(self, weights=None) -> int:
         if weights is None:

@@ -11,7 +11,7 @@ import sys
 import os
 import re
 
-version = '1.4.0'
+version = '1.4.1'
 args: argparse.Namespace
 input_path: Path = Path.cwd()
 scan_size: int = 0
@@ -282,15 +282,6 @@ def rout_object(mkv: MKV, dest: Path, diff: int = 0) -> int:
     return finish_object(mkv, dest, diff)
 
 
-NAME_MAX = 50
-
-
-def trunc_mid(s: str, max_len: int = NAME_MAX) -> str:
-    if len(s) <= max_len:
-        return s
-    half = (max_len - 3) // 2
-    return s[:half] + '...' + s[-(max_len - 3 - half):]
-
 
 def format_track_table(tracks: list) -> str:
     HDR = ('', 'Type', 'Score', 'Lang', 'Codec', 'Ch', 'Name')
@@ -299,7 +290,7 @@ def format_track_table(tracks: list) -> str:
         typ = Track.TYPE_SHORT.get(t.type, t.type)
         w = '-' if t.weight < 0 else str(t.weight)
         ch = str(t.channels) if t.channels else ''
-        name = trunc_mid(t.track_name or '')
+        name = Util.trunc_mid(t.track_name or '')
         en = '[+]' if t.enabled else '[ ]'
         rows.append((en, typ, w, t.language or '', t.codec or '', ch, name))
 
@@ -357,7 +348,7 @@ def finish_object(mkv: MKV, dest: Path, diff: int = 0) -> int:
 
     if not args.dry:
         enabled_tracks = [track for track in mkv.tracks_non_video if track.enabled]
-        name = trunc_mid(mkv.file_path.name)
+        name = Util.trunc_mid(mkv.file_path.name)
         tqdm.write(f'\n{diff_prefix(diff)}{name}')
         tqdm.write('Selected:')
         for track in enabled_tracks:

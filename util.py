@@ -156,6 +156,13 @@ class Util:
         print(text[:part_length] + '...' + text[-part_length:])
 
     @staticmethod
+    def trunc_mid(s: str, max_len: int = 50) -> str:
+        if len(s) <= max_len:
+            return s
+        half = (max_len - 3) // 2
+        return s[:half] + '...' + s[-(max_len - 3 - half):]
+
+    @staticmethod
     def check_dependency(dep: list[str]):
         for d in dep:
             if not shutil.which(d):

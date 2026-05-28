@@ -24,6 +24,7 @@ using `mkvmerge`. No transcoding — pure stream copy, fast.
   - [Options](#options)
   - [Examples](#examples)
 - [Track Scoring](#track-scoring-smart-command)
+- [*arr Integration](#arr-integration-radarr--sonarr)
 
 ## Features
 
@@ -33,7 +34,7 @@ using `mkvmerge`. No transcoding — pure stream copy, fast.
 - Recursive directory processing
 - In-place replace or separate output folder
 - Bundled `mkvmerge` — runs without MKVToolNix installed on target machine
-- Radarr/Sonarr integration via custom script hook
+- Radarr/Sonarr integration via shell script hook (no binary needed)
 
 ---
 
@@ -41,7 +42,7 @@ using `mkvmerge`. No transcoding — pure stream copy, fast.
 
 - Python 3.10+
 - `mkvmerge` (MKVToolNix) — bundled into the binary at build time
-- Python packages (`pyinstaller`, `tqdm`, `humanize`) — installed automatically by deploy script
+- Python packages (`pyinstaller`, `tqdm`, `humanize`, `pyyaml`) — installed automatically by deploy script
 
 ---
 
@@ -102,39 +103,6 @@ ENTRYPOINT ["mkv_trim"]
 
 > Build the binary on a Linux machine first (`bash deploy.sh`), then use `dist/mkv_trim` as the `COPY` source. For Alpine-based images (e.g. linuxserver.io), use `bash deploy_alpine.sh` for a musl-compatible binary.
 
-### *arr Integration (Radarr / Sonarr)
-
-`arr/import.sh` integrates with Radarr and Sonarr without the mkv_trim binary.
-Only dependency: **mkvtoolnix** (`mkvmerge`).
-
-Copy `arr/import.sh` and `arr/mkv_trim.conf` into your container's config directory
-(e.g. `/config/scripts/`). Edit `mkv_trim.conf` for your language preferences.
-
-**docker-compose.yml** — add to your existing *arr service:
-
-```yaml
-services:
-  radarr:
-    image: lscr.io/linuxserver/radarr:latest
-    environment:
-      - DOCKER_MODS=linuxserver/mods:universal-package-install
-      - INSTALL_PACKAGES=mkvtoolnix
-    volumes:
-      - /config/radarr:/config
-      - /movies:/movies
-    # mkvtoolnix is re-installed automatically on every container update
-```
-
-Configure in the Radarr/Sonarr UI — the same script handles both integration modes:
-
-| Mode | Location | Path |
-|------|----------|------|
-| Import Using Script | `Settings > Media Management > Import Using Script` | `/config/scripts/import.sh` |
-| Custom Script | `Settings > Connect > Custom Script` (On Import / On Upgrade) | `/config/scripts/import.sh` |
-
-The script auto-detects which mode is active from the environment variables *arr provides.
-If mkvmerge cannot process the file (non-MKV format, etc.), it falls back to a plain copy.
-
 ---
 
 ## Usage
@@ -158,7 +126,7 @@ mkv_trim <command> [options] [path]
 | `-a` | `--audio` | Audio languages to keep. Comma-separated: `-a eng,jpn`. 3-letter ISO 639-2/3 codes. Invalid codes skipped. |
 | `-s` | `--subtitle` | Subtitle languages to keep. Omit to remove all subtitles. 3-letter ISO 639-2/3 codes. |
 | `-o` | `--output` | Output file path (overrides default `Trim/` folder) |
-| `-W` | `--weights` | Path to custom JSON weights file |
+| `-W` | `--weights` | Path to custom YAML weights file |
 | `-R` | `--recursive` | Scan subdirectories |
 | `-L` | `--inplace` | Replace files in place (no `Trim/` folder) |
 | `-S` | `--stats` | Print approximate total disk space saved |
@@ -166,6 +134,7 @@ mkv_trim <command> [options] [path]
 | `-M` | `--min SIZE` | Minimum estimated diff to process file (e.g. `500M`, `1G`, `1.5GiB`) |
 | `-d` | `--dry` | Print `mkvmerge` commands without executing |
 | `-I` | `--interactive` | Ask confirmation before each file |
+|      | `--log [PATH]` | Mirror output to log file. Bare `--log` writes `mkv_trim.log` in cwd. |
 | `-V` | `--version` | Print version and exit |
 
 3-letter ISO 639-2/3 codes only (e.g. `eng`, `jpn`, `und`). Invalid codes skipped with a warning. Full list in `data/languages.json`.
@@ -193,35 +162,147 @@ mkv_trim smart -RSda eng,jpn /movies     # dry run with space diff stats
 
 ## Track Scoring (smart command)
 
-Score = channel count + forced/default flags + name keyword match + codec match.
+Score = channel count + name keyword match + codec match + forced/default flag bonus.
 
 Highest-scoring track per language is kept. Unnamed tracks are always kept.
 Negative scores (e.g. commentary tracks) are disabled.
 
-### Default weights
+Weights are defined in YAML. Keys are **mkvmerge -J field paths** (dot-separated) —
+any track property can be used as a scoring axis.
 
-```json
-{
-  "track_name": {
-    "dub":     100,
-    "orig":    100,
-    "comment": -1000
-  },
-  "audio_codec": {
-    "TrueHD": 7, "Atmos": 6, "DTS": 5, "AC3": 4, "AC-3": 3
-  },
-  "subtitle_codec": {
-    "ass": 20, "SubStationAlpha": 20, "srt": 10
-  }
-}
+### Default weights (`data/default_weights.yaml`)
+
+```yaml
+properties.forced_track:
+  "true": 1
+
+properties.default_track:
+  "true": 1
+
+codec:
+  TrueHD: 7          # matches "TrueHD Atmos" too
+  DTS: 5
+  AC3: 4
+  AC-3: 3
+  SubStationAlpha: 2
+  ass: 2
+  srt: 1
+
+properties.track_name:
+  dub: 100
+  orig: 100
+  full: 50
+  forced: 50
+  mvo: 50
+  comment: -1000
+  director: -1000
+  # ... see data/default_weights.yaml for full list
 ```
 
 ### Custom weights
 
 ```bash
-mkv_trim smart -a eng,jpn -W /path/to/weights.json /movies
+mkv_trim smart -a eng,jpn -W /path/to/weights.yaml /movies
 ```
 
-Supported top-level keys: `track_name`, `audio_codec`, `subtitle_codec`.
-Values are additive integers (positive = prefer, negative = penalize).
+Any mkvmerge track property path works as a key. Example `weights.yaml`:
 
+```yaml
+properties.track_name:
+  comment: -1000
+  dub: 100
+
+codec:
+  TrueHD: 7
+  DTS: 5
+
+# Free weights — any mkvmerge -J field path
+properties.audio_channels:
+  "8": 2    # extra +2 for 8-channel tracks
+```
+
+See `example_weights.yaml` for a fully annotated reference.
+
+---
+
+## *arr Integration (Radarr / Sonarr)
+
+`arr/import.sh` strips unwanted tracks on import without the mkv_trim binary.
+Only requirement: `mkvmerge` in PATH.
+
+### 1. Install mkvtoolnix in the container
+
+Add to your existing *arr service in `docker-compose.yml`:
+
+```yaml
+services:
+  radarr:                                          # or sonarr, lidarr, etc.
+    image: lscr.io/linuxserver/radarr:latest
+    environment:
+      - DOCKER_MODS=linuxserver/mods:universal-package-install
+      - INSTALL_PACKAGES=mkvtoolnix
+    volumes:
+      - /path/to/config:/config
+      - /path/to/movies:/movies
+```
+
+`mkvtoolnix` is reinstalled automatically on every container update via the mod.
+
+### 2. Copy scripts
+
+Copy `arr/import.sh` and `arr/mkv_trim.conf` into the container's config directory:
+
+```bash
+cp arr/import.sh arr/mkv_trim.conf /path/to/config/scripts/
+chmod +x /path/to/config/scripts/import.sh
+```
+
+### 3. Edit `mkv_trim.conf`
+
+```bash
+# Audio languages to keep (comma-separated ISO 639-2 codes)
+AUDIO_LANGS="eng,jpn,und"
+
+# Subtitle languages to keep (leave empty to remove all)
+SUBTITLE_LANGS=""
+
+# Track name scoring (pattern:score, space-separated, case-insensitive)
+NAME_WEIGHTS="dub:100 orig:100 comment:-1000 director:-1000"
+
+# Codec scoring
+CODEC_WEIGHTS="TrueHD:7 DTS:5 AC3:4 SubStationAlpha:2 ass:2 srt:1"
+```
+
+### 4. Configure in Radarr / Sonarr
+
+The same `import.sh` handles both integration modes — configure whichever fits your setup:
+
+| Mode | Where | Triggers |
+|------|-------|----------|
+| **Import Using Script** | `Settings › Media Management › Import Using Script` | Replaces the normal import copy/move. Script receives source + destination paths. |
+| **Custom Script** | `Settings › Connect › Custom Script` | Fires after import. Set events: **On File Import** + **On File Upgrade**. Modifies file in place. |
+
+> **Import Using Script** is preferred — it processes the file before it lands in the library,
+> so Plex/Jellyfin never sees the unstripped version.
+
+### 5. Test the connection
+
+Use the **Test** button in the Radarr/Sonarr UI after adding the script.
+The script will verify `mkvmerge` is reachable and print its version:
+
+```
+import.sh: connection OK
+  mkvmerge: mkvmerge v82.0 ...
+  config:   /config/scripts/mkv_trim.conf
+  audio:    eng,jpn,und
+  subs:     none
+```
+
+If `mkvmerge not found in PATH` is printed, check that `INSTALL_PACKAGES=mkvtoolnix`
+is set and the container has been restarted at least once after adding the mod.
+
+### Fallback behaviour
+
+- **Import Using Script**: if mkvmerge fails or produces no output, the original file is copied as-is.
+- **Custom Script**: if mkvmerge fails, the original file is left untouched.
+- Non-MKV files (`.mp4`, `.avi`, etc.) are passed through unchanged.

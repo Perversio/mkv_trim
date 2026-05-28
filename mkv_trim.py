@@ -10,7 +10,7 @@ import sys
 import os
 import re
 
-version = '1.4.3'
+version = '1.4.4'
 
 
 class _Tee:

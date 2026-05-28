@@ -95,6 +95,8 @@ class MKV:
             json_data = json.loads(output.stdout)
         except json.JSONDecodeError as e:
             raise ValueError(f'mkvmerge returned invalid data for: {self.file_path}') from e
+        if 'tracks' not in json_data:
+            raise ValueError(f'mkvmerge returned no track data for: {self.file_path}')
         for track_data in json_data['tracks']:
             track = Track(track_data)
             by_type_l: dict

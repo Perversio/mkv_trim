@@ -16,7 +16,7 @@ Options:
   -s / --subtitle    Subtitle languages to keep. Comma-separated: -s eng,jpn
                      Accepts 3-letter ISO 639-2/3 codes. Omit to remove all subtitles.
   -o / --output      Output file path (overrides Trim/ folder default)
-  -W / --weights     Path to custom JSON weights file
+  -W / --weights     Path to custom YAML weights file
   -R / --recursive   Scan subdirectories
   -L / --inplace     Replace files in place (no Trim folder created)
   -S / --stats       Print approximate total disk space saved
@@ -41,22 +41,26 @@ Examples:
   mkv_trim smart -RSda eng,jpn /movies     Dry run with stats, no files modified
 
 Weighting (smart command):
-  Track score = channel count + forced/default flags + name keyword match + codec match.
-  Override weights by passing a JSON file via -W. Supported keys:
+  Track score = channel count + name keyword match + codec match + property matches.
+  Highest-scoring track per language is kept; negative-scoring tracks are excluded.
 
-  {
-    "track_name": {
-      "dub": 100,
-      "orig": 100,
-      "comment": -1000
-    },
-    "audio_codec": {
-      "TrueHD": 70,
-      "DTS": 50,
-      "AC3": 40
-    },
-    "subtitle_codec": {
-      "ass": 20,
-      "srt": 10
-    }
-  }
+  Override weights with a YAML file via -W. Keys are mkvmerge -J field paths
+  (dot-separated); values are case-insensitive substring patterns -> integer scores.
+  Matching is additive. Common paths: codec, properties.track_name,
+  properties.audio_channels, properties.default_track, properties.forced_track
+
+  codec:
+    TrueHD: 7
+    DTS: 5
+    AC-3: 3
+    srt: 1
+
+  properties.track_name:
+    dub: 100
+    orig: 100
+    comment: -1000
+
+  properties.forced_track:
+    "true": 1
+
+  See example_weights.yaml for a fuller, commented template.

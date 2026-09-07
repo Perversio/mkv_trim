@@ -10,7 +10,7 @@ import sys
 import os
 import re
 
-version = '1.4.4'
+version = '1.4.5'
 
 
 class _Tee:
@@ -430,29 +430,15 @@ def smart_tracks_disable(mkv: MKV, track_type: str = None, track_langs: list = N
             for track in by_lang:
                 track.enabled = False
             continue
-        # English: keep all unnamed tracks (codec/channel variants) + best named.
-        # Other langs: keep single highest-scoring track (usually a dub).
+        # Keep single highest-scoring track per language.
         # by_lang already sorted (weight, bitrate) desc. Negative weights skipped.
-        if lang == 'eng':
-            best_named_set = False
-            for track in by_lang:
-                if track.weight < 0:
-                    track.enabled = False
-                elif not track.track_name:
-                    track.enabled = True
-                elif not best_named_set:
-                    track.enabled = True
-                    best_named_set = True
-                else:
-                    track.enabled = False
-        else:
-            chosen = False
-            for track in by_lang:
-                if not chosen and track.weight >= 0:
-                    track.enabled = True
-                    chosen = True
-                else:
-                    track.enabled = False
+        chosen = False
+        for track in by_lang:
+            if not chosen and track.weight >= 0:
+                track.enabled = True
+                chosen = True
+            else:
+                track.enabled = False
 
 
 def load_weights() -> dict:

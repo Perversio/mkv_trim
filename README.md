@@ -164,7 +164,7 @@ mkv_trim smart -RSda eng,jpn /movies     # dry run with space diff stats
 
 Score = channel count + name keyword match + codec match + forced/default flag bonus.
 
-Highest-scoring track per language is kept. Unnamed tracks are always kept.
+Highest-scoring track per language is kept; all other tracks of that language are dropped.
 Negative scores (e.g. commentary tracks) are disabled.
 
 Weights are defined in YAML. Keys are **mkvmerge -J field paths** (dot-separated) —
